@@ -1,4 +1,4 @@
-package dev.hiett.clockmonster.payloads;
+package dev.hiett.clockmonster.entities.job;
 
 import dev.hiett.clockmonster.entities.action.ActionConfiguration;
 import dev.hiett.clockmonster.entities.time.TimeConfiguration;
@@ -8,7 +8,7 @@ import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 
 @RegisterForReflection
-public class CreateJobPayload {
+public class UnidentifiedJob implements Job {
 
     private Object payload;
 
@@ -20,13 +20,13 @@ public class CreateJobPayload {
     @Valid
     private ActionConfiguration action;
 
-    public CreateJobPayload(Object payload, TimeConfiguration time, ActionConfiguration action) {
+    public UnidentifiedJob(Object payload, TimeConfiguration time, ActionConfiguration action) {
         this.payload = payload;
         this.time = time;
         this.action = action;
     }
 
-    public CreateJobPayload() {}
+    public UnidentifiedJob() {}
 
     public Object getPayload() {
         return payload;

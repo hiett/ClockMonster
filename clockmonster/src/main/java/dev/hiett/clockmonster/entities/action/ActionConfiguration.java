@@ -1,6 +1,7 @@
 package dev.hiett.clockmonster.entities.action;
 
 import io.quarkus.runtime.annotations.RegisterForReflection;
+import io.vertx.mutiny.sqlclient.Row;
 import org.hibernate.validator.constraints.URL;
 
 import javax.validation.constraints.NotEmpty;
@@ -37,5 +38,13 @@ public class ActionConfiguration {
 
     public void setUrl(String url) {
         this.url = url;
+    }
+
+    // Static //
+    public static ActionConfiguration fromRow(Row row) {
+        return new ActionConfiguration(
+                ActionType.valueOf(row.getString("action_type")),
+                row.getString("action_url")
+        );
     }
 }
