@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.hiett.clockmonster.entities.job.IdentifiedJob;
 import dev.hiett.clockmonster.entities.job.UnidentifiedJob;
+import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.pgclient.PgPool;
 import io.vertx.mutiny.sqlclient.PreparedQuery;
@@ -14,8 +15,9 @@ import io.vertx.mutiny.sqlclient.Tuple;
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.List;
 
 @ApplicationScoped
 public class JobDatabaseService {
@@ -68,5 +70,23 @@ public class JobDatabaseService {
 
                     return null;
                 });
+    }
+
+    public Multi<IdentifiedJob> findJobs() {
+        return pgPool.preparedQuery("SELECT * FROM " + JOB_TABLE + " WHERE time_first_run < NOW()")
+                .execute().onItem().transformToMulti(rows -> {
+                    List<IdentifiedJob> jobs = new ArrayList<>();
+
+                    for(Row row : rows)
+                        jobs.add(IdentifiedJob.fromRow(row));
+
+                    return Multi.createFrom().items(jobs.stream());
+                });
+    }
+
+    public Uni<Void> deleteJob(long id) {
+        return pgPool.preparedQuery("DELETE FROM " + JOB_TABLE + " WHERE id = $1")
+                .execute(Tuple.of(id))
+                .onItem().transform(r -> null);
     }
 }
