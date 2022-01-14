@@ -1,6 +1,7 @@
 package dev.hiett.clockmonster.executor;
 
 import dev.hiett.clockmonster.entities.job.IdentifiedJob;
+import dev.hiett.clockmonster.services.dispatcher.DispatcherService;
 import dev.hiett.clockmonster.services.job.JobService;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
@@ -17,6 +18,9 @@ public class JobExecutor implements Runnable {
     @Inject
     JobService jobService;
 
+    @Inject
+    DispatcherService dispatcherService;
+
     private Thread executorThread;
     private boolean running;
 
@@ -32,9 +36,8 @@ public class JobExecutor implements Runnable {
     }
 
     private boolean processJob(IdentifiedJob job) {
-
-
-        return true;
+        // TODO: Introduce a timeout here
+        return dispatcherService.dispatchJob(job).await().indefinitely();
     }
 
     @Override
