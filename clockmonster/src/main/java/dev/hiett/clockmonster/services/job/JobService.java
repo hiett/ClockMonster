@@ -7,6 +7,8 @@ import io.smallrye.mutiny.Uni;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
 @ApplicationScoped
 public class JobService {
@@ -41,8 +43,17 @@ public class JobService {
                 return jobDatabaseService.deleteJob(job.getId());
             }
             case REPEATING: {
-                // TODO: Update the job here
-                return Uni.createFrom().voidItem();
+                // Check if the number of iterations has passed. Add one to remember that we haven't yet incremented this iteration
+                if(job.getTime().getIterations() != -1 && job.getTime().getIterationsCount() + 1 >= job.getTime().getIterations()) {
+                    // Delete the job
+                    return jobDatabaseService.deleteJob(job.getId());
+                }
+
+                long newUnixTime = (System.currentTimeMillis() / 1000) + job.getTime().getInterval();
+                LocalDateTime localDateTime = LocalDateTime.ofEpochSecond(newUnixTime, 0, ZoneOffset.UTC);
+
+                // Update the job time and number of iterations
+                return jobDatabaseService.updateJobTime(job.getId(), localDateTime, true);
             }
             default: return Uni.createFrom().voidItem();
         }

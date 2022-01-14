@@ -17,15 +17,17 @@ public class TimeConfiguration {
     private long firstRunUnix;
 
     private int iterations = 0;
+    private int iterationsCount = 0;
     private long interval = 0; // seconds
 
-    public TimeConfiguration(TimeType type, long firstRunUnix, int iterations, long interval) {
+    public TimeConfiguration(TimeType type, long firstRunUnix, int iterations, long interval, int iterationsCount) {
         this.type = type;
         this.firstRunUnix = firstRunUnix;
 
         if(type == TimeType.REPEATING) {
             this.iterations = iterations;
             this.interval = interval;
+            this.iterationsCount = iterationsCount;
         }
     }
 
@@ -37,6 +39,14 @@ public class TimeConfiguration {
 
     public void setType(TimeType type) {
         this.type = type;
+    }
+
+    public int getIterationsCount() {
+        return iterationsCount;
+    }
+
+    public void setIterationsCount(int iterationsCount) {
+        this.iterationsCount = iterationsCount;
     }
 
     public long getFirstRunUnix() {
@@ -69,7 +79,8 @@ public class TimeConfiguration {
                 TimeType.valueOf(row.getString("time_type")),
                 row.getLocalDateTime("time_first_run").atZone(ZoneId.of("UTC")).toEpochSecond(),
                 row.getInteger("time_repeating_iterations"),
-                row.getLong("time_repeating_interval")
+                row.getLong("time_repeating_interval"),
+                row.getInteger("time_repeating_iterations_count")
         );
     }
 }

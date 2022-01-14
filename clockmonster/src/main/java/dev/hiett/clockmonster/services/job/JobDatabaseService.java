@@ -89,4 +89,14 @@ public class JobDatabaseService {
                 .execute(Tuple.of(id))
                 .onItem().transform(r -> null);
     }
+
+    public Uni<Void> updateJobTime(long id, LocalDateTime jobTime, boolean addIteration) {
+        String countIterationSql = "";
+        if(addIteration)
+            countIterationSql = ", time_repeating_iterations_count = time_repeating_iterations_count + 1 ";
+
+        return pgPool.preparedQuery("UPDATE " + JOB_TABLE + " SET time_first_run = $1" + countIterationSql + " WHERE id = $2")
+                .execute(Tuple.of(jobTime, id))
+                .onItem().transform(r -> null);
+    }
 }
