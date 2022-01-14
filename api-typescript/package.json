@@ -1,0 +1,20 @@
+{
+  "name": "clockmonster",
+  "version": "1.0.0",
+  "description": "ClockMonster TypeScript API",
+  "main": "dist/index.js",
+  "repository": "https://github.com/hiett/ClockMonster",
+  "author": "Scott Hiett",
+  "license": "MIT",
+  "private": false,
+  "scripts": {
+    "dev": "ts-node src/index.ts"
+  },
+  "dependencies": {
+    "axios": "^0.24.0"
+  },
+  "devDependencies": {
+    "ts-node": "^10.4.0",
+    "typescript": "^4.5.4"
+  }
+}
