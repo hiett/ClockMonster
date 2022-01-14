@@ -25,7 +25,7 @@ export * from "./types";
   // Method 2
   const job2 = await client.builder()
     .repeating(60, 10)
-    .toHttp("https://discord.com/api/webhooks/931646405204918303/DkfSOzfnEPaRKxAhmzus76KjguOhtFtuD9iT0RgHgCxs_CaNZsoevAdPMmBVBLpJkLtQ")
+    .toHttp("https://google.com") // LOL.. left a discord webhook url in there! Deleted it
     .runFirstAt(new Date())
     .withPayload({
       content: "I am a scheduled job"
