@@ -39,7 +39,7 @@ public class JobResource{
     }
 
     @DELETE
-    public Uni<Response> deleteJob() {
-        return Uni.createFrom().item(Response.ok("Working!").build());
+    public Uni<Response> deleteJob(@QueryParam(value = "id") long id) {
+        return jobService.deleteJob(id).onItem().transform(res -> Response.ok().build());
     }
 }
