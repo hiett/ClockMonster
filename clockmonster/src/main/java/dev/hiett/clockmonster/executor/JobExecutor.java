@@ -5,6 +5,8 @@ import dev.hiett.clockmonster.services.dispatcher.DispatcherService;
 import dev.hiett.clockmonster.services.job.JobService;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
 
 import javax.enterprise.event.Observes;
 import javax.inject.Inject;
@@ -16,10 +18,16 @@ import java.util.stream.Collectors;
 public class JobExecutor implements Runnable {
 
     @Inject
+    Logger log;
+
+    @Inject
     JobService jobService;
 
     @Inject
     DispatcherService dispatcherService;
+
+    @ConfigProperty(name = "clockmonster.executor.wait-seconds", defaultValue = "5")
+    int waitTimeSeconds;
 
     private Thread executorThread;
     private boolean running;
@@ -42,12 +50,14 @@ public class JobExecutor implements Runnable {
 
     @Override
     public void run() {
+        log.info("Running JobExecutor at wait delay of " + waitTimeSeconds + "s");
+
         while(running) {
             List<IdentifiedJob> jobs = jobService.findJobsToProcess()
                     .subscribe().asStream().collect(Collectors.toList());
 
             for(IdentifiedJob job : jobs) {
-                System.out.println("Executing job " + job.getId() + ", type=" + job.getTime().getType() + ", method="
+                log.info("Executing job " + job.getId() + ", type=" + job.getTime().getType() + ", method="
                         + job.getAction().getType() + ", url=" + job.getAction().getUrl());
 
                 boolean success = this.processJob(job);
@@ -58,7 +68,7 @@ public class JobExecutor implements Runnable {
             }
 
             try {
-                Thread.sleep(5 * 1000);
+                Thread.sleep(waitTimeSeconds * 1000L);
             } catch (InterruptedException e) {
             }
         }
