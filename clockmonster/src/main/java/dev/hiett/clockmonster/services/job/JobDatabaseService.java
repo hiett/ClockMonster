@@ -90,6 +90,14 @@ public class JobDatabaseService {
                 .onItem().transform(r -> null);
     }
 
+    public Uni<Void> batchDeleteJobs(Long... ids) {
+        Tuple tuple = Tuple.tuple().addArrayOfLong(ids);
+
+        return pgPool.preparedQuery("DELETE FROM " + JOB_TABLE + " WHERE id = ANY($1)")
+                .execute(tuple)
+                .onItem().transform(r -> null);
+    }
+
     public Uni<Void> updateJobTime(long id, LocalDateTime jobTime, boolean addIteration) {
         String countIterationSql = "";
         if(addIteration)

@@ -32,6 +32,10 @@ public class JobService {
         return jobDatabaseService.deleteJob(id);
     }
 
+    public Uni<Void> batchDeleteJobs(Long... ids) {
+        return jobDatabaseService.batchDeleteJobs(ids);
+    }
+
     /**
      * Will delete a job if its a one time job, or step it to the next iteration if multi run
      * @param job job to step
