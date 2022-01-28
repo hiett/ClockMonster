@@ -9,6 +9,7 @@ Environment variables:
 `DB_PORT`
 `DB_USERNAME`
 `DB_PASSWORD`
+`DB_DATABASE`
 `DB_MIGRATION_TABLE` (optional)
 `EXECUTOR_WAIT_SECONDS` (default 5)
 
