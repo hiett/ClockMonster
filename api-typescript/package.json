@@ -1,6 +1,6 @@
 {
-  "name": "clockmonster",
-  "version": "1.0.0",
+  "name": "@hiett/clockmonster",
+  "version": "0.0.1",
   "description": "ClockMonster TypeScript API",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -9,7 +9,8 @@
   "license": "MIT",
   "private": false,
   "scripts": {
-    "dev": "ts-node src/index.ts"
+    "dev": "ts-node src/index.ts",
+    "build": "tsc"
   },
   "dependencies": {
     "axios": "^0.24.0"
