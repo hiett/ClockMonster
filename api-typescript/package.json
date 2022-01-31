@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "ClockMonster TypeScript API",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "repository": "https://github.com/hiett/ClockMonster",
   "author": "Scott Hiett",
   "license": "MIT",
