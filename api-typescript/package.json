@@ -8,6 +8,9 @@
   "author": "Scott Hiett",
   "license": "MIT",
   "private": false,
+  "publishConfig": {
+    "registry":"https://npm.pkg.github.com"
+  },
   "scripts": {
     "dev": "ts-node src/index.ts",
     "build": "tsc"
