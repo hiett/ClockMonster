@@ -1,4 +1,4 @@
-import {JobClient} from "../clients/job-client";
+import {JobClient} from "../clients";
 import {ActionConfiguration, IdentifiedJob, TimeConfiguration} from "../types";
 
 export class JobBuilder<T = object> {

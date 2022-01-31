@@ -1,6 +1,6 @@
 import {IdentifiedJob, UnidentifiedJob} from "../types";
 import axios, {AxiosInstance} from "axios";
-import {JobBuilder} from "../builders/job-builder";
+import {JobBuilder} from "../builders";
 
 export class JobClient {
 
