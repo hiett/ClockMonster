@@ -46,15 +46,11 @@ public class JobRedisStorageService implements JobStorageService {
     private static final String LUA_POP_JOBS_SCRIPT =
             "local key, now = KEYS[1], ARGV[1]\n" +
                     "local jobs = redis.call(\"zrangebyscore\", key, \"-inf\", now)\n" +
-                    "local job_count = 0\n" +
-                    "for _ in pairs(jobs) do\n" +
-                    "    job_count = job_count + 1\n" +
-                    "end\n" +
                     "\n" +
-                    "if job_count > 0 then \n" +
+                    "if jobs[1] then \n" +
                     "    return redis.call(\"mget\", unpack(jobs))\n" +
                     "else\n" +
-                    "    return {}" +
+                    "    return {}\n" +
                     "end";
 
     //language=Lua
