@@ -17,8 +17,8 @@ import io.vertx.redis.client.RedisOptions;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
-import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
+import javax.inject.Singleton;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
@@ -35,7 +35,7 @@ import java.util.stream.StreamSupport;
  * This is because the system allows you to get values by ID, and I didn't want to scan the set. To minimise friction
  * everything that requires the multiple redis commands is done in Lua.
  */
-@ApplicationScoped
+@Singleton
 public class JobRedisStorageService implements JobStorageService {
 
     private static final String JOB_ID_INCR_KEY = "clockmonster-id-gen";

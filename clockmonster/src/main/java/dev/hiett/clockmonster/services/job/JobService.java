@@ -16,7 +16,11 @@ public class JobService {
 
     @Inject
     JobStorageProviderService jobStorageProviderService;
-    
+
+    public boolean isReady() {
+        return jobStorageProviderService.isReady();
+    }
+
     public Uni<IdentifiedJob> createJob(UnidentifiedJob job) {
         return jobStorageProviderService.getCurrentImplementation().createJob(job);
     }

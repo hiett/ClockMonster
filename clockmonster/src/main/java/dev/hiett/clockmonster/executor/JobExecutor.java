@@ -53,6 +53,9 @@ public class JobExecutor implements Runnable {
         log.info("Running JobExecutor at wait delay of " + waitTimeSeconds + "s");
 
         while(running) {
+            if(!jobService.isReady())
+                continue;
+
             List<IdentifiedJob> jobs = jobService.findJobsToProcess()
                     .subscribe().asStream().collect(Collectors.toList());
 
@@ -70,6 +73,8 @@ public class JobExecutor implements Runnable {
             }
 
             long jobExecutionElapsedTime = System.currentTimeMillis() - jobExecutionStartTime;
+
+            log.info("Job execution took " + jobExecutionElapsedTime + "ms.");
 
             try {
                 long waitTimeMs = waitTimeSeconds * 1000L;

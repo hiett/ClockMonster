@@ -26,6 +26,8 @@ public class JobStorageProviderService {
     @Inject
     Logger log;
 
+    private boolean ready;
+
     void onStart(@Observes StartupEvent event) {
         if(method == null) {
             // The method is null, this will cause errors when trying to save!
@@ -33,7 +35,12 @@ public class JobStorageProviderService {
                     "Valid methods are: " + Arrays.toString(JobStorageMethod.values()));
         } else {
             this.getCurrentImplementation().createConnection();
+            ready = true;
         }
+    }
+
+    public boolean isReady() {
+        return ready;
     }
 
     public JobStorageService getCurrentImplementation() {
