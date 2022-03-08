@@ -21,6 +21,9 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Migrations are handled via Flyway. To add a new migration, go into the src/main/resources/db/migration folder.
+ */
 @ApplicationScoped
 public class JobPostgresStorageService implements JobStorageService {
 
