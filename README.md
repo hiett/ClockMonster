@@ -13,10 +13,17 @@ poll for tasks via the environment variable `EXECUTOR_WAIT_SECONDS`.
 ClockMonster is built to be horizontally scaled if required. However, this service is very lightweight, so unless
 you are creating a ton of tasks, replication shouldn't be required.
 
-Currently, ClockMonster stores its job data in Postgres. You must provide valid a Postgres database configuration
-via the environment variables. Eventually, ClockMonster will be able to have multiple data storage methods,
-so use-case can be best suited. For example, if you're not too worried about job persistence, ClockMonster could
-run just from Redis, or even an internal memory store.
+ClockMonster supports storing data in either Postgres or Redis. In the future, more databases will be added.
+You can select the storage method by the environment variable `JOB_STORAGE_METHOD` (see below).
+
+### Storage Method Notes
+- Postgres
+  - Will create some tables that ClockMonster will manage.
+  - To execute, ClockMonster will run a simple query looking for all jobs in the past
+- Redis
+  - Uses scored sets, where the score is the execution time. Value is the job id. Then utilises `zrangebyscore` to order the jobs that are in the past.
+  - Currently, stores the actual job payloads in a different key. The lua script will use `mget` to grab them all at once for jobs that require executing.
+  - Due to the separation of jobs in keys and their scores in the set, as much of the grouped Redis logic as possible is within Lua scripts  
 
 ## API documentation
 Coming soon. Currently there is a work-in-progress TypeScript API in this repository, but it's not finished yet.\
@@ -31,12 +38,14 @@ https://hub.docker.com/r/hiett/clockmonster
 `docker pull hiett/clockmonster`
 
 Environment variables:\
-`DB_HOST`\
+`JOB_STORAGE_METHOD` (must be either `POSTGRES` or `REDIS`)\
+`DB_HOST` (DB configuration only required if `JOB_STORAGE_METHOD`=`POSTGRES`)\
 `DB_PORT`\
 `DB_USERNAME`\
 `DB_PASSWORD`\
 `DB_DATABASE`\
 `DB_MIGRATION_TABLE` (optional)\
+`REDIS_CONN_URL` (Redis configuration only required if `JOB_STORAGE_METHOD`=`REDIS`)\
 `EXECUTOR_WAIT_SECONDS` (default 5)
 
 ## Developing ClockMonster
