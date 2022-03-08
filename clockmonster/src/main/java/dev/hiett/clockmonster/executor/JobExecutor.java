@@ -56,10 +56,10 @@ public class JobExecutor implements Runnable {
             if(!jobService.isReady())
                 continue;
 
+            long jobExecutionStartTime = System.currentTimeMillis();
+
             List<IdentifiedJob> jobs = jobService.findJobsToProcess()
                     .subscribe().asStream().collect(Collectors.toList());
-
-            long jobExecutionStartTime = System.currentTimeMillis();
 
             for(IdentifiedJob job : jobs) {
                 log.info("Executing job " + job.getId() + ", type=" + job.getTime().getType() + ", method="
