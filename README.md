@@ -10,8 +10,8 @@ and you want to get a call to a service when one of the schedule periods start /
 Note however, ClockMonster is not per-second accurate. You can configure how often you'd like ClockMonster to
 poll for tasks via the environment variable `EXECUTOR_WAIT_SECONDS`.
 
-ClockMonster is built to be horizontally scaled if required. However, this service is very lightweight, so unless
-you are creating a ton of tasks, replication shouldn't be required.
+By the time of first full release, ClockMonster will be able to be replicated. However, right now if you do so,
+there is a chance that jobs will get ran twice if their executors line up. To solve this, a job locking system will be added.
 
 ClockMonster supports storing data in either Postgres or Redis. In the future, more databases will be added.
 You can select the storage method by the environment variable `JOB_STORAGE_METHOD` (see below).
