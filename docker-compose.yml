@@ -5,10 +5,16 @@ services:
     image: hiett/clockmonster:latest
     ports: ['8080:8080']
     environment:
+      JOB_STORAGE_METHOD: POSTGRES # Valid currently are: POSTGRES, REDIS
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USERNAME: clockmonster
       DB_PASSWORD: clockmonster
+      DB_DATABASE: clockmonster
+
+  redis:
+    image: redis
+    ports: ['6379:6379']
 
   postgres:
     image: postgres

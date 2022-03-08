@@ -1,9 +1,10 @@
-package dev.hiett.clockmonster.services.job;
+package dev.hiett.clockmonster.services.job.storage.impls;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.hiett.clockmonster.entities.job.IdentifiedJob;
 import dev.hiett.clockmonster.entities.job.UnidentifiedJob;
+import dev.hiett.clockmonster.services.job.storage.JobStorageService;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.pgclient.PgPool;
@@ -11,6 +12,7 @@ import io.vertx.mutiny.sqlclient.PreparedQuery;
 import io.vertx.mutiny.sqlclient.Row;
 import io.vertx.mutiny.sqlclient.RowSet;
 import io.vertx.mutiny.sqlclient.Tuple;
+import org.flywaydb.core.Flyway;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
@@ -20,7 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @ApplicationScoped
-public class JobDatabaseService {
+public class JobPostgresStorageService implements JobStorageService {
 
     private static final String JOB_TABLE = "clockmonster_jobs";
 
@@ -30,6 +32,19 @@ public class JobDatabaseService {
     @Inject
     ObjectMapper objectMapper;
 
+    @Inject
+    Flyway flyway;
+
+    /**
+     * If POSTGRES is the selected storage method, then we need to run the migrations
+     * to setup the database
+     */
+    @Override
+    public void createConnection() {
+        flyway.migrate();
+    }
+
+    @Override
     public Uni<IdentifiedJob> createJob(UnidentifiedJob unidentifiedJob) {
         PreparedQuery<RowSet<Row>> query = pgPool.preparedQuery("INSERT INTO " + JOB_TABLE + "(payload, action_type, action_url, time_type, time_first_run, time_repeating_iterations, time_repeating_interval)\n" +
                 "VALUES ($1, $2, $3, $4, $5, $6, $7) \n" +
@@ -61,6 +76,7 @@ public class JobDatabaseService {
         });
     }
 
+    @Override
     public Uni<IdentifiedJob> getJob(long id) {
         return pgPool.preparedQuery("SELECT * FROM " + JOB_TABLE + " WHERE id = $1")
                 .execute(Tuple.of(id))
@@ -72,6 +88,7 @@ public class JobDatabaseService {
                 });
     }
 
+    @Override
     public Multi<IdentifiedJob> findJobs() {
         return pgPool.preparedQuery("SELECT * FROM " + JOB_TABLE + " WHERE time_first_run < NOW()")
                 .execute().onItem().transformToMulti(rows -> {
@@ -84,12 +101,14 @@ public class JobDatabaseService {
                 });
     }
 
+    @Override
     public Uni<Void> deleteJob(long id) {
         return pgPool.preparedQuery("DELETE FROM " + JOB_TABLE + " WHERE id = $1")
                 .execute(Tuple.of(id))
                 .onItem().transform(r -> null);
     }
 
+    @Override
     public Uni<Void> batchDeleteJobs(Long... ids) {
         Tuple tuple = Tuple.tuple().addArrayOfLong(ids);
 
@@ -98,6 +117,7 @@ public class JobDatabaseService {
                 .onItem().transform(r -> null);
     }
 
+    @Override
     public Uni<Void> updateJobTime(long id, LocalDateTime jobTime, boolean addIteration) {
         String countIterationSql = "";
         if(addIteration)

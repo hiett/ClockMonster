@@ -2,6 +2,7 @@ package dev.hiett.clockmonster.services.job;
 
 import dev.hiett.clockmonster.entities.job.IdentifiedJob;
 import dev.hiett.clockmonster.entities.job.UnidentifiedJob;
+import dev.hiett.clockmonster.services.job.storage.JobStorageProviderService;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 
@@ -14,26 +15,30 @@ import java.time.ZoneOffset;
 public class JobService {
 
     @Inject
-    JobDatabaseService jobDatabaseService;
+    JobStorageProviderService jobStorageProviderService;
+
+    public boolean isReady() {
+        return jobStorageProviderService.isReady();
+    }
 
     public Uni<IdentifiedJob> createJob(UnidentifiedJob job) {
-        return jobDatabaseService.createJob(job);
+        return jobStorageProviderService.getCurrentImplementation().createJob(job);
     }
 
     public Uni<IdentifiedJob> getJob(long id) {
-        return jobDatabaseService.getJob(id);
+        return jobStorageProviderService.getCurrentImplementation().getJob(id);
     }
 
     public Multi<IdentifiedJob> findJobsToProcess() {
-        return jobDatabaseService.findJobs();
+        return jobStorageProviderService.getCurrentImplementation().findJobs();
     }
 
     public Uni<Void> deleteJob(long id) {
-        return jobDatabaseService.deleteJob(id);
+        return jobStorageProviderService.getCurrentImplementation().deleteJob(id);
     }
 
     public Uni<Void> batchDeleteJobs(Long... ids) {
-        return jobDatabaseService.batchDeleteJobs(ids);
+        return jobStorageProviderService.getCurrentImplementation().batchDeleteJobs(ids);
     }
 
     /**
@@ -44,20 +49,20 @@ public class JobService {
     public Uni<Void> stepJob(IdentifiedJob job) {
         switch(job.getTime().getType()) {
             case ONCE: {
-                return jobDatabaseService.deleteJob(job.getId());
+                return jobStorageProviderService.getCurrentImplementation().deleteJob(job.getId());
             }
             case REPEATING: {
                 // Check if the number of iterations has passed. Add one to remember that we haven't yet incremented this iteration
                 if(job.getTime().getIterations() != -1 && job.getTime().getIterationsCount() + 1 >= job.getTime().getIterations()) {
                     // Delete the job
-                    return jobDatabaseService.deleteJob(job.getId());
+                    return jobStorageProviderService.getCurrentImplementation().deleteJob(job.getId());
                 }
 
                 long newUnixTime = (System.currentTimeMillis() / 1000) + job.getTime().getInterval();
                 LocalDateTime localDateTime = LocalDateTime.ofEpochSecond(newUnixTime, 0, ZoneOffset.UTC);
 
                 // Update the job time and number of iterations
-                return jobDatabaseService.updateJobTime(job.getId(), localDateTime, true);
+                return jobStorageProviderService.getCurrentImplementation().updateJobTime(job.getId(), localDateTime, true);
             }
             default: return Uni.createFrom().voidItem();
         }

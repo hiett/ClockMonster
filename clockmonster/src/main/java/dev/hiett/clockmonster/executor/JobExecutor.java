@@ -53,6 +53,11 @@ public class JobExecutor implements Runnable {
         log.info("Running JobExecutor at wait delay of " + waitTimeSeconds + "s");
 
         while(running) {
+            if(!jobService.isReady())
+                continue;
+
+            long jobExecutionStartTime = System.currentTimeMillis();
+
             List<IdentifiedJob> jobs = jobService.findJobsToProcess()
                     .subscribe().asStream().collect(Collectors.toList());
 
@@ -67,8 +72,17 @@ public class JobExecutor implements Runnable {
                 }
             }
 
+            long jobExecutionElapsedTime = System.currentTimeMillis() - jobExecutionStartTime;
+
+            log.info("Job execution took " + jobExecutionElapsedTime + "ms.");
+
             try {
-                Thread.sleep(waitTimeSeconds * 1000L);
+                long waitTimeMs = waitTimeSeconds * 1000L;
+                long sleepDuration = Math.max(waitTimeMs - jobExecutionElapsedTime, 0);
+                if(jobExecutionElapsedTime > waitTimeMs)
+                    log.warn("Job execution took longer than executor wait time! Not waiting before running next iteration");
+
+                Thread.sleep(sleepDuration);
             } catch (InterruptedException e) {
             }
         }
