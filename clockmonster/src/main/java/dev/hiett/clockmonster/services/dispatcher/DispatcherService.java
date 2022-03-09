@@ -2,6 +2,7 @@ package dev.hiett.clockmonster.services.dispatcher;
 
 import dev.hiett.clockmonster.entities.action.ActionType;
 import dev.hiett.clockmonster.entities.job.Job;
+import dev.hiett.clockmonster.services.dispatcher.impls.HTTPDispatcher;
 import io.smallrye.mutiny.Uni;
 
 import javax.inject.Singleton;

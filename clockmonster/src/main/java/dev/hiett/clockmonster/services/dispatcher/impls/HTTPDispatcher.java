@@ -1,7 +1,8 @@
-package dev.hiett.clockmonster.services.dispatcher;
+package dev.hiett.clockmonster.services.dispatcher.impls;
 
 import dev.hiett.clockmonster.entities.action.ActionConfiguration;
 import dev.hiett.clockmonster.entities.action.ActionType;
+import dev.hiett.clockmonster.services.dispatcher.Dispatcher;
 import io.smallrye.mutiny.Uni;
 
 import javax.ws.rs.client.Client;
