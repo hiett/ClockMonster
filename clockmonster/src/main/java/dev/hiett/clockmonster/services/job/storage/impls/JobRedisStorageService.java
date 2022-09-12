@@ -19,6 +19,7 @@ import org.jboss.logging.Logger;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
@@ -101,7 +102,7 @@ public class JobRedisStorageService implements JobStorageService {
         return this.createJobId()
                 .chain(jobId -> {
                     IdentifiedJob identifiedJob = new IdentifiedJob(jobId, unidentifiedJob.getPayload(),
-                            unidentifiedJob.getTime(), unidentifiedJob.getAction());
+                            unidentifiedJob.getTime(), unidentifiedJob.getAction(), unidentifiedJob.getFailure());
 
                     // Stringify this
                     String jobJson = this.jsonifyJob(identifiedJob);
@@ -109,7 +110,7 @@ public class JobRedisStorageService implements JobStorageService {
                         return Uni.createFrom().item(null);
 
                     return this.redis.evalsha(List.of(this.createJobLuaSha, "2", JOB_ZLIST_KEY, this.createJobKey(jobId),
-                            jobJson, Long.valueOf(identifiedJob.getTime().getFirstRunUnix()).toString()))
+                            jobJson, Long.valueOf(identifiedJob.getTime().getNextRunUnix()).toString()))
                             .onItem().transform(r -> identifiedJob);
                 });
     }
@@ -165,7 +166,7 @@ public class JobRedisStorageService implements JobStorageService {
         return this.getJob(id)
                 .onItem().ifNull().fail()
                 .onItem().transform(res -> {
-                    res.getTime().setFirstRunUnix(jobTime.atZone(ZoneId.of("UTC")).toEpochSecond());
+                    res.getTime().setNextRunUnix(jobTime.atZone(ZoneId.of("UTC")).toEpochSecond());
                     if(addIteration)
                         res.getTime().setIterationsCount(res.getTime().getIterations() + 1);
                     return this.jsonifyJob(res);
@@ -174,6 +175,17 @@ public class JobRedisStorageService implements JobStorageService {
                 .chain(r -> this.redis.set(List.of(this.createJobKey(id), r))
                         .onItem().transform(b -> null))
                 .onFailure().recoverWithNull().replaceWithVoid();
+    }
+
+    @Override
+    public Uni<Void> updateJob(IdentifiedJob job) {
+        // Encode the job into json
+        String jobJson = this.jsonifyJob(job);
+        if (jobJson == null)
+            return Uni.createFrom().failure(new IOException());
+
+        return this.redis.set(List.of(this.createJobKey(job.getId()), jobJson))
+                .onItem().transform(r -> null);
     }
 
     private String loadScript(String script) {

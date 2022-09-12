@@ -2,7 +2,8 @@ package dev.hiett.clockmonster.services.dispatcher;
 
 import dev.hiett.clockmonster.entities.action.ActionType;
 import dev.hiett.clockmonster.entities.job.Job;
-import dev.hiett.clockmonster.services.dispatcher.impls.HTTPDispatcher;
+import dev.hiett.clockmonster.services.dispatcher.impls.HttpDispatcher;
+import dev.hiett.clockmonster.services.dispatcher.impls.SqsDispatcher;
 import io.smallrye.mutiny.Uni;
 
 import javax.inject.Singleton;
@@ -12,7 +13,8 @@ import java.util.List;
 public class DispatcherService {
 
     private static final List<Dispatcher> dispatchers = List.of(
-            new HTTPDispatcher()
+            new HttpDispatcher(),
+            new SqsDispatcher()
     );
 
     public Uni<Boolean> dispatchJob(Job job) {
@@ -21,7 +23,7 @@ public class DispatcherService {
         if(dispatcher == null)
             return Uni.createFrom().item(false);
 
-        return dispatcher.dispatchJob(job.getAction(), job.getPayload());
+        return dispatcher.dispatchJob(job.getAction().getPayload(), job.getPayload());
     }
 
     private Dispatcher findDispatcher(ActionType actionType) {

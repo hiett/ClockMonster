@@ -1,50 +1,109 @@
 package dev.hiett.clockmonster.entities.action;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.hiett.clockmonster.entities.action.http.HttpActionPayload;
+import dev.hiett.clockmonster.entities.action.http.SqsActionPayload;
 import io.quarkus.runtime.annotations.RegisterForReflection;
 import io.vertx.mutiny.sqlclient.Row;
-import org.hibernate.validator.constraints.URL;
 
-import javax.validation.constraints.NotEmpty;
-import javax.validation.constraints.NotNull;
+import javax.validation.*;
+import java.beans.ConstructorProperties;
+import java.util.Set;
 
 @RegisterForReflection
 public class ActionConfiguration {
 
-    @NotNull(message = "You must provide an action type!")
-    private ActionType type;
+    private static final Validator validator;
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    @NotEmpty(message = "You must provide a url!")
-    @URL(message = "URL must be a valid URL!")
-    private String url;
-
-    public ActionConfiguration(ActionType type, String url) {
-        this.type = type;
-        this.url = url;
+    static {
+        ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
+        validator = factory.getValidator();
     }
 
-    public ActionConfiguration() {}
+    @Valid
+    private HttpActionPayload http;
 
+    @Valid
+    private SqsActionPayload sqs;
+
+    @ConstructorProperties({"http", "sqs"})
+    public ActionConfiguration(HttpActionPayload http, SqsActionPayload sqs) {
+        this.http = http;
+        this.sqs = sqs;
+    }
+
+    public ActionConfiguration() {
+        this.http = null;
+        this.sqs = null;
+    }
+
+    @JsonIgnore
     public ActionType getType() {
-        return type;
+        if(http != null)
+            return ActionType.HTTP;
+
+        if(sqs != null)
+            return ActionType.SQS;
+
+        return null;
     }
 
-    public void setType(ActionType type) {
-        this.type = type;
+    @JsonIgnore
+    public ActionPayload getPayload() {
+        switch(getType()) {
+            case HTTP: return http;
+            case SQS: return sqs;
+            default: return null;
+        }
     }
 
-    public String getUrl() {
-        return url;
+    public boolean validateActionConfiguration(){
+        ActionType type = this.getType();
+        if(type == null)
+            return false;
+
+        // Validate the relevant payload
+        ActionPayload payload = this.getPayload();
+        Set<ConstraintViolation<ActionPayload>> validationViolations = validator.validate(payload);
+
+        return validationViolations.size() <= 0;
     }
 
-    public void setUrl(String url) {
-        this.url = url;
+    // Individual type getters for reflection
+    public HttpActionPayload getHttp() {
+        return http;
+    }
+
+    public SqsActionPayload getSqs() {
+        return sqs;
+    }
+
+    public void setHttp(HttpActionPayload http) {
+        this.http = http;
+    }
+
+    public void setSqs(SqsActionPayload sqs) {
+        this.sqs = sqs;
     }
 
     // Static //
     public static ActionConfiguration fromRow(Row row) {
-        return new ActionConfiguration(
-                ActionType.valueOf(row.getString("action_type")),
-                row.getString("action_url")
-        );
+        return fromRow(row, "action");
+    }
+
+    public static ActionConfiguration fromRow(Row row, String column) {
+        String actionString = row.getString("action");
+        if(actionString != null) {
+            try {
+                return objectMapper.readValue(actionString, ActionConfiguration.class);
+            } catch (JsonProcessingException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return null;
     }
 }

@@ -1,6 +1,7 @@
 package dev.hiett.clockmonster.entities.job;
 
 import dev.hiett.clockmonster.entities.action.ActionConfiguration;
+import dev.hiett.clockmonster.entities.failure.FailureConfiguration;
 import dev.hiett.clockmonster.entities.time.TimeConfiguration;
 import io.quarkus.runtime.annotations.RegisterForReflection;
 
@@ -20,14 +21,19 @@ public class UnidentifiedJob implements Job {
     @Valid
     private ActionConfiguration action;
 
-    public UnidentifiedJob(Object payload, TimeConfiguration time, ActionConfiguration action) {
+    @Valid
+    private FailureConfiguration failure = new FailureConfiguration();
+
+    public UnidentifiedJob(Object payload, TimeConfiguration time, ActionConfiguration action, FailureConfiguration failure) {
         this.payload = payload;
         this.time = time;
         this.action = action;
+        this.failure = failure;
     }
 
     public UnidentifiedJob() {}
 
+    @Override
     public Object getPayload() {
         return payload;
     }
@@ -36,6 +42,7 @@ public class UnidentifiedJob implements Job {
         this.payload = payload;
     }
 
+    @Override
     public TimeConfiguration getTime() {
         return time;
     }
@@ -44,11 +51,21 @@ public class UnidentifiedJob implements Job {
         this.time = time;
     }
 
+    @Override
     public ActionConfiguration getAction() {
         return action;
     }
 
     public void setAction(ActionConfiguration action) {
         this.action = action;
+    }
+
+    @Override
+    public FailureConfiguration getFailure() {
+        return failure;
+    }
+
+    public void setFailure(FailureConfiguration failure) {
+        this.failure = failure;
     }
 }

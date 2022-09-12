@@ -7,6 +7,7 @@ import dev.hiett.clockmonster.entities.job.UnidentifiedJob;
 import dev.hiett.clockmonster.services.job.storage.JobStorageService;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
+import io.vertx.core.json.JsonArray;
 import io.vertx.mutiny.pgclient.PgPool;
 import io.vertx.mutiny.sqlclient.PreparedQuery;
 import io.vertx.mutiny.sqlclient.Row;
@@ -49,14 +50,21 @@ public class JobPostgresStorageService implements JobStorageService {
 
     @Override
     public Uni<IdentifiedJob> createJob(UnidentifiedJob unidentifiedJob) {
-        PreparedQuery<RowSet<Row>> query = pgPool.preparedQuery("INSERT INTO " + JOB_TABLE + "(payload, action_type, action_url, time_type, time_first_run, time_repeating_iterations, time_repeating_interval)\n" +
-                "VALUES ($1, $2, $3, $4, $5, $6, $7) \n" +
+        PreparedQuery<RowSet<Row>> query = pgPool.preparedQuery("INSERT INTO " + JOB_TABLE + "(payload, action, time_type, time_next_run, time_repeating_iterations, time_repeating_interval, failure_dead_letter_action, failure_backoff)\n" +
+                "VALUES ($1, $2, $3, $4, $5, $6, $7, $8) \n" +
                 "RETURNING *");
 
         String payloadJsonString = null;
+        String actionJsonString = null;
+        String failureDeadLetterActionJsonString = null;
         if(unidentifiedJob.getPayload() != null) {
             try {
                 payloadJsonString = objectMapper.writeValueAsString(unidentifiedJob.getPayload());
+                actionJsonString = objectMapper.writeValueAsString(unidentifiedJob.getAction());
+
+                if(unidentifiedJob.getFailure().getDeadLetter() != null) {
+                    failureDeadLetterActionJsonString = objectMapper.writeValueAsString(unidentifiedJob.getFailure().getDeadLetter());
+                }
             } catch (JsonProcessingException e) {
                 // TODO: Raise up the chain
                 e.printStackTrace();
@@ -64,12 +72,13 @@ public class JobPostgresStorageService implements JobStorageService {
         }
 
         Tuple tuple = Tuple.of(payloadJsonString)
-                .addString(unidentifiedJob.getAction().getType().toString())
-                .addString(unidentifiedJob.getAction().getUrl())
+                .addString(actionJsonString)
                 .addString(unidentifiedJob.getTime().getType().toString())
-                .addLocalDateTime(LocalDateTime.ofEpochSecond(unidentifiedJob.getTime().getFirstRunUnix(), 0, ZoneOffset.UTC))
+                .addLocalDateTime(LocalDateTime.ofEpochSecond(unidentifiedJob.getTime().getNextRunUnix(), 0, ZoneOffset.UTC))
                 .addInteger(unidentifiedJob.getTime().getIterations())
-                .addLong(unidentifiedJob.getTime().getInterval());
+                .addLong(unidentifiedJob.getTime().getInterval())
+                .addString(failureDeadLetterActionJsonString)
+                .addJsonArray(new JsonArray(unidentifiedJob.getFailure().getBackoff()));
 
         return query.execute(tuple).onItem().transform(rows -> {
             for(Row row : rows)
@@ -93,7 +102,7 @@ public class JobPostgresStorageService implements JobStorageService {
 
     @Override
     public Multi<IdentifiedJob> findJobs() {
-        return pgPool.preparedQuery("SELECT * FROM " + JOB_TABLE + " WHERE time_first_run < NOW()")
+        return pgPool.preparedQuery("SELECT * FROM " + JOB_TABLE + " WHERE time_next_run < NOW()")
                 .execute().onItem().transformToMulti(rows -> {
                     List<IdentifiedJob> jobs = new ArrayList<>();
 
@@ -126,8 +135,13 @@ public class JobPostgresStorageService implements JobStorageService {
         if(addIteration)
             countIterationSql = ", time_repeating_iterations_count = time_repeating_iterations_count + 1 ";
 
-        return pgPool.preparedQuery("UPDATE " + JOB_TABLE + " SET time_first_run = $1" + countIterationSql + " WHERE id = $2")
+        return pgPool.preparedQuery("UPDATE " + JOB_TABLE + " SET time_next_run = $1" + countIterationSql + " WHERE id = $2")
                 .execute(Tuple.of(jobTime, id))
                 .onItem().transform(r -> null);
+    }
+
+    @Override
+    public Uni<Void> updateJob(IdentifiedJob job) {
+        return null;
     }
 }

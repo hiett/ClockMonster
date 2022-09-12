@@ -1,7 +1,7 @@
 package dev.hiett.clockmonster.services.dispatcher.impls;
 
-import dev.hiett.clockmonster.entities.action.ActionConfiguration;
 import dev.hiett.clockmonster.entities.action.ActionType;
+import dev.hiett.clockmonster.entities.action.http.HttpActionPayload;
 import dev.hiett.clockmonster.services.dispatcher.Dispatcher;
 import io.smallrye.mutiny.Uni;
 
@@ -12,16 +12,17 @@ import javax.ws.rs.core.Response;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class HTTPDispatcher implements Dispatcher {
+public class HttpDispatcher implements Dispatcher<HttpActionPayload> {
 
     private static final ExecutorService executorService = Executors.newCachedThreadPool();
 
     @Override
-    public Uni<Boolean> dispatchJob(ActionConfiguration actionConfiguration, Object payload) {
-        return Uni.createFrom().item(actionConfiguration).chain(r -> {
+    public Uni<Boolean> dispatchJob(HttpActionPayload httpActionPayload, Object payload) {
+        return Uni.createFrom().item(httpActionPayload).chain(r -> {
             Client client = ClientBuilder.newBuilder().build();
-            Response response = client.target(actionConfiguration.getUrl())
+            Response response = client.target(httpActionPayload.getUrl())
                     .request()
+                    .header("x-dispatched-from", "ClockMonster")
                     .buildPost(Entity.json(payload))
                     .invoke();
 

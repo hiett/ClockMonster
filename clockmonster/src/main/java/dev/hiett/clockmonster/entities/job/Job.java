@@ -1,6 +1,7 @@
 package dev.hiett.clockmonster.entities.job;
 
 import dev.hiett.clockmonster.entities.action.ActionConfiguration;
+import dev.hiett.clockmonster.entities.failure.FailureConfiguration;
 import dev.hiett.clockmonster.entities.time.TimeConfiguration;
 
 public interface Job {
@@ -10,4 +11,6 @@ public interface Job {
     TimeConfiguration getTime();
 
     ActionConfiguration getAction();
+
+    FailureConfiguration getFailure();
 }

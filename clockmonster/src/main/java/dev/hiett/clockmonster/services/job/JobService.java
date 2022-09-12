@@ -41,6 +41,10 @@ public class JobService {
         return jobStorageProviderService.getCurrentImplementation().batchDeleteJobs(ids);
     }
 
+    public Uni<Void> updateJob(IdentifiedJob job) {
+        return jobStorageProviderService.getCurrentImplementation().updateJob(job);
+    }
+
     /**
      * Will delete a job if its a one time job, or step it to the next iteration if multi run
      * @param job job to step

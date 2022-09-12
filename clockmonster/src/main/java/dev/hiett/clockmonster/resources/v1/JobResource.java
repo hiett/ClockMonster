@@ -23,12 +23,16 @@ public class JobResource {
 
     @POST
     public Uni<Response> createJob(@Valid UnidentifiedJob payload) {
-        return jobService.createJob(payload)
-                .onItem().transform(identifiedJob -> Response.ok(identifiedJob).build());
+        return Uni.createFrom().item(payload)
+                .onItem().transform(p -> p.getAction().validateActionConfiguration() ? p : null)
+                .onItem().ifNull().fail()
+                .chain(p -> jobService.createJob(p))
+                .onItem().transform(identifiedJob -> Response.ok(identifiedJob).build())
+                .onFailure().recoverWithItem(Response.status(422).entity("Invalid action configuration provided.").build());
     }
 
     @GET
-    public Uni<Response> getJob(@QueryParam(value = "id") long id) {
+    public Uni<Response> getJob(@QueryParam("id") long id) {
         return jobService.getJob(id)
                 .onItem().transform(identifiedJob -> {
                     if(identifiedJob == null)
@@ -39,13 +43,13 @@ public class JobResource {
     }
 
     @DELETE
-    public Uni<Response> deleteJob(@QueryParam(value = "id") long id) {
+    public Uni<Response> deleteJob(@QueryParam("id") long id) {
         return jobService.deleteJob(id).onItem().transform(res -> Response.ok().build());
     }
 
     @DELETE
     @Path("/batch")
-    public Uni<Response> batchDeleteJob(@QueryParam(value = "ids") String ids) {
+    public Uni<Response> batchDeleteJob(@QueryParam("ids") String ids) {
         // Split the ids into strings
         List<Long> parsedIds = Arrays.stream(ids.split(","))
                 .map(Long::parseLong)

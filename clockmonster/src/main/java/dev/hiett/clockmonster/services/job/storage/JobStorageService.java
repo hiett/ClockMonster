@@ -22,4 +22,6 @@ public interface JobStorageService {
     Uni<Void> batchDeleteJobs(Long... ids);
 
     Uni<Void> updateJobTime(long id, LocalDateTime jobTime, boolean addIteration);
+
+    Uni<Void> updateJob(IdentifiedJob job);
 }
