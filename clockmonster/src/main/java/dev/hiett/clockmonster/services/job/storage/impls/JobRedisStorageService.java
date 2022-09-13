@@ -177,11 +177,10 @@ public class JobRedisStorageService implements JobStorageService {
                     res.getTime().setNextRunUnix(jobTime.atZone(ZoneId.of("UTC")).toEpochSecond());
                     if(addIteration)
                         res.getTime().setIterationsCount(res.getTime().getIterationsCount() + 1);
-                    return this.jsonifyJob(res);
+                    return res;
                 })
-                .onItem().ifNull().fail()
-                .chain(r -> this.redis.set(List.of(this.createJobKey(id), r))
-                        .onItem().transform(b -> null))
+                .onItem().ifNull().fail() // Update the sorted set & entry
+                .chain(this::updateJob)
                 .onFailure().recoverWithNull().replaceWithVoid();
     }
 
