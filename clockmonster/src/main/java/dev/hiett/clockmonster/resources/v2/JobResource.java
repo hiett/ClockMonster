@@ -1,4 +1,4 @@
-package dev.hiett.clockmonster.resources.v1;
+package dev.hiett.clockmonster.resources.v2;
 
 import dev.hiett.clockmonster.entities.job.UnidentifiedJob;
 import dev.hiett.clockmonster.services.job.JobService;

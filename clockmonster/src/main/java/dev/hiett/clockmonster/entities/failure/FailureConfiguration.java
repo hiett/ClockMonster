@@ -54,10 +54,11 @@ public class FailureConfiguration {
         // Parse json for the deadLetter action configuration
         // int for iterations count
         JsonArray backoffJsonArray = row.getJsonArray("failure_backoff");
+
         List<Long> parsedBackoff = new ArrayList<>();
         if(backoffJsonArray != null) {
-            parsedBackoff = backoffJsonArray.stream().filter(i -> i instanceof Long)
-                    .map(i -> (long) i).collect(Collectors.toList());
+            parsedBackoff = backoffJsonArray.stream().filter(i -> i instanceof Number)
+                    .map(i -> ((Number) i).longValue()).collect(Collectors.toList());
         }
 
         // parse the Dead Letter configuration (failure_dead_letter_action)

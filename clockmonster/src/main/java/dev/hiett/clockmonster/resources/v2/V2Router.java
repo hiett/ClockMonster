@@ -1,4 +1,4 @@
-package dev.hiett.clockmonster.resources.v1;
+package dev.hiett.clockmonster.resources.v2;
 
 import javax.enterprise.context.RequestScoped;
 import javax.inject.Inject;

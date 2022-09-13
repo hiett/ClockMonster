@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.hiett.clockmonster.entities.failure.FailureConfiguration;
 import dev.hiett.clockmonster.entities.job.IdentifiedJob;
+import dev.hiett.clockmonster.entities.job.TemporaryFailureJob;
 import dev.hiett.clockmonster.services.dispatcher.DispatcherService;
 import dev.hiett.clockmonster.services.job.JobService;
 import io.quarkus.runtime.ShutdownEvent;
@@ -92,7 +93,9 @@ public class JobExecutor implements Runnable {
                     if(failure.getIterationsCount() > failure.getBackoff().size()) {
                         // Delete the job
                         if(failure.getDeadLetter() != null) {
-                            // TODO: Fire to the dead letter queue
+                            TemporaryFailureJob failureJob = new TemporaryFailureJob(job.getPayload(), job.getFailure().getDeadLetter());
+                            dispatcherService.dispatchJob(failureJob).await().indefinitely(); // we dont care if this fails
+
                             log.info("Firing to dead letter queue");
                         }
 

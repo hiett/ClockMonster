@@ -133,7 +133,7 @@ public class JobPostgresStorageService implements JobStorageService {
     public Uni<Void> updateJobTime(long id, LocalDateTime jobTime, boolean addIteration) {
         String countIterationSql = "";
         if(addIteration)
-            countIterationSql = ", time_repeating_iterations_count = time_repeating_iterations_count + 1 ";
+            countIterationSql = ", time_repeating_iterations_count = time_repeating_iterations_count + 1, failure_iterations_count = 0 "; // reset failure iterations count when successful
 
         return pgPool.preparedQuery("UPDATE " + JOB_TABLE + " SET time_next_run = $1" + countIterationSql + " WHERE id = $2")
                 .execute(Tuple.of(jobTime, id))
@@ -142,6 +142,48 @@ public class JobPostgresStorageService implements JobStorageService {
 
     @Override
     public Uni<Void> updateJob(IdentifiedJob job) {
-        return null;
+        String payloadJsonString = null;
+        String actionJsonString = null;
+        String failureDeadLetterActionJsonString = null;
+        if(job.getPayload() != null) {
+            try {
+                payloadJsonString = objectMapper.writeValueAsString(job.getPayload());
+                actionJsonString = objectMapper.writeValueAsString(job.getAction());
+
+                if(job.getFailure().getDeadLetter() != null) {
+                    failureDeadLetterActionJsonString = objectMapper.writeValueAsString(job.getFailure().getDeadLetter());
+                }
+            } catch (JsonProcessingException e) {
+                // TODO: Raise up the chain
+                e.printStackTrace();
+            }
+        }
+
+        Tuple tuple = Tuple.tuple()
+                .addLong(job.getId())
+                .addString(payloadJsonString)
+                .addString(actionJsonString)
+                .addString(job.getTime().getType().toString())
+                .addLocalDateTime(LocalDateTime.ofEpochSecond(job.getTime().getNextRunUnix(), 0, ZoneOffset.UTC))
+                .addInteger(job.getTime().getIterations())
+                .addLong(job.getTime().getInterval())
+                .addInteger(job.getTime().getIterationsCount())
+                .addString(failureDeadLetterActionJsonString)
+                .addInteger(job.getFailure().getIterationsCount())
+                .addJsonArray(new JsonArray(job.getFailure().getBackoff()));
+
+        return pgPool.preparedQuery("UPDATE " + JOB_TABLE + " SET payload=$2, " +
+                "                             \n" +
+                "                             action=$3, \n" +
+                "                             time_type=$4, \n" +
+                "                             time_next_run=$5, \n" +
+                "                             time_repeating_iterations=$6, \n" +
+                "                             time_repeating_interval=$7,\n" +
+                "                             time_repeating_iterations_count=$8,\n" +
+                "                             failure_dead_letter_action=$9,\n" +
+                "                             failure_iterations_count=$10,\n" +
+                "                             failure_backoff=$11\n" +
+                "WHERE id=$1").execute(tuple)
+                .onItem().transform(r -> null);
     }
 }
