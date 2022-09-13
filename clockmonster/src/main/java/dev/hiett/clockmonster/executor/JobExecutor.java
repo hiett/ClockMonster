@@ -14,6 +14,7 @@ import org.jboss.logging.Logger;
 import javax.enterprise.event.Observes;
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -100,7 +101,8 @@ public class JobExecutor implements Runnable {
                     } else {
                         // Update the job state based on the backoff time period
                         Long waitSeconds = failure.getBackoff().get(failure.getIterationsCount() - 1);
-                        job.getTime().setNextRunUnix(job.getTime().getNextRunUnix() + waitSeconds);
+                        long currentTime = System.currentTimeMillis() / 1000;
+                        job.getTime().setNextRunUnix(currentTime + waitSeconds);
 
                         jobService.updateJob(job).await().indefinitely();
                     }

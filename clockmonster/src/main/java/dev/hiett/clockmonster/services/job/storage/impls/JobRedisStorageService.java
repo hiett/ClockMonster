@@ -66,6 +66,13 @@ public class JobRedisStorageService implements JobStorageService {
                     "redis.call(\"set\", key, payload)\n" +
                     "redis.call(\"zadd\", schkey, extime, key)\n";
 
+    //language=Lua
+    private static final String LUA_UPDATE_JOB_SCRIPT =
+            "local schkey, key, payload, extime = KEYS[1], KEYS[2], ARGV[1], ARGV[2]\n" +
+                    "redis.call(\"set\", key, payload)\n" +
+                    "redis.call(\"zrem\", schkey, key)\n" +
+                    "redis.call(\"zadd\", schkey, extime, key)";
+
     @Inject
     ObjectMapper objectMapper;
 
@@ -79,7 +86,7 @@ public class JobRedisStorageService implements JobStorageService {
     String redisUrl;
 
     private RedisAPI redis;
-    private String popJobsLuaSha, removeJobsLuaSha, createJobLuaSha;
+    private String popJobsLuaSha, removeJobsLuaSha, createJobLuaSha, updateJobLuaSha;
 
     /**
      * If REDIS is the selected storage method, then we need to create the redis connection and
@@ -93,6 +100,7 @@ public class JobRedisStorageService implements JobStorageService {
         this.popJobsLuaSha = this.loadScript(LUA_POP_JOBS_SCRIPT);
         this.removeJobsLuaSha = this.loadScript(LUA_BULK_REMOVE_JOBS_SCRIPT);
         this.createJobLuaSha = this.loadScript(LUA_CREATE_JOB_SCRIPT);
+        this.updateJobLuaSha = this.loadScript(LUA_UPDATE_JOB_SCRIPT);
 
         log.info("Redis SHAs: pop=" + this.popJobsLuaSha + ", remove=" + this.removeJobsLuaSha + ", create=" + this.createJobLuaSha);
     }
@@ -184,7 +192,9 @@ public class JobRedisStorageService implements JobStorageService {
         if (jobJson == null)
             return Uni.createFrom().failure(new IOException());
 
-        return this.redis.set(List.of(this.createJobKey(job.getId()), jobJson))
+        // We also need to update the sorted set value
+        return this.redis.evalsha(List.of(updateJobLuaSha, "2", JOB_ZLIST_KEY, this.createJobKey(job.getId()),
+                        jobJson, Long.valueOf(job.getTime().getNextRunUnix()).toString()))
                 .onItem().transform(r -> null);
     }
 

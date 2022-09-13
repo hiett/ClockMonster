@@ -13,7 +13,6 @@ import java.util.stream.Collectors;
 @RegisterForReflection
 public class FailureConfiguration {
 
-    // TODO: Check internally if it's polling by ms or sec
     private static final List<Long> DEFAULT_EXPONENTIAL_BACKOFF = List.of(1L, 2L, 4L, 16L, 32L, 64L);
 
     private List<Long> backoff = DEFAULT_EXPONENTIAL_BACKOFF;

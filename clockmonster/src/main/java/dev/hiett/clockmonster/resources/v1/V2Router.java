@@ -11,8 +11,8 @@ import javax.ws.rs.core.MediaType;
 @RequestScoped
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
-@Path("/v1")
-public class V1Router {
+@Path("/v2")
+public class V2Router {
 
     @Inject
     ResourceContext resourceContext;
