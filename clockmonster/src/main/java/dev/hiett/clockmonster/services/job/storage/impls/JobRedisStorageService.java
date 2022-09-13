@@ -176,7 +176,7 @@ public class JobRedisStorageService implements JobStorageService {
                 .onItem().transform(res -> {
                     res.getTime().setNextRunUnix(jobTime.atZone(ZoneId.of("UTC")).toEpochSecond());
                     if(addIteration)
-                        res.getTime().setIterationsCount(res.getTime().getIterations() + 1);
+                        res.getTime().setIterationsCount(res.getTime().getIterationsCount() + 1);
                     return this.jsonifyJob(res);
                 })
                 .onItem().ifNull().fail()

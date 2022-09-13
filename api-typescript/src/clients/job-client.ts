@@ -1,6 +1,5 @@
 import {IdentifiedJob, UnidentifiedJob} from "../types";
 import axios, {AxiosInstance} from "axios";
-import {JobBuilder} from "../builders";
 
 export class JobClient {
 
@@ -28,9 +27,5 @@ export class JobClient {
 
   async deleteJob(id: number): Promise<void> {
     await this.httpClient.delete<IdentifiedJob>(`/v1/job?id=${id}`);
-  }
-
-  builder<T>(): JobBuilder<T> {
-    return new JobBuilder(this);
   }
 }
