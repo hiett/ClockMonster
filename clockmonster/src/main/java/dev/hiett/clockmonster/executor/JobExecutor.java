@@ -5,10 +5,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.hiett.clockmonster.entities.failure.FailureConfiguration;
 import dev.hiett.clockmonster.entities.job.IdentifiedJob;
 import dev.hiett.clockmonster.entities.job.TemporaryFailureJob;
+import dev.hiett.clockmonster.events.ClockMonsterEvent;
+import dev.hiett.clockmonster.events.ClockMonsterEventDispatcherService;
+import dev.hiett.clockmonster.events.WrappedClockMonsterEvent;
 import dev.hiett.clockmonster.services.dispatcher.DispatcherService;
 import dev.hiett.clockmonster.services.job.JobService;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
+import io.vertx.core.eventbus.EventBus;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
@@ -33,6 +37,9 @@ public class JobExecutor implements Runnable {
 
     @Inject
     ObjectMapper objectMapper;
+
+    @Inject
+    ClockMonsterEventDispatcherService eventDispatcherService;
 
     @ConfigProperty(name = "clockmonster.executor.wait-seconds", defaultValue = "5")
     int waitTimeSeconds;
@@ -83,9 +90,13 @@ public class JobExecutor implements Runnable {
 
                 boolean success = this.processJob(job);
                 if (success) {
+                    eventDispatcherService.dispatch(ClockMonsterEvent.JOB_INVOKE_SUCCESSFUL.build(job.getId()));
+
                     // Mark job as complete
                     jobService.stepJob(job).await().indefinitely();
                 } else {
+                    eventDispatcherService.dispatch(ClockMonsterEvent.JOB_INVOKE_FAILURE.build(job.getId()));
+
                     // Handle configuring based on the failure
                     FailureConfiguration failure = job.getFailure();
                     failure.incrementIterationsCount();

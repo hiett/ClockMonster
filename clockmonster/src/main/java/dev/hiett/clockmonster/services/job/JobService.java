@@ -2,6 +2,8 @@ package dev.hiett.clockmonster.services.job;
 
 import dev.hiett.clockmonster.entities.job.IdentifiedJob;
 import dev.hiett.clockmonster.entities.job.UnidentifiedJob;
+import dev.hiett.clockmonster.events.ClockMonsterEvent;
+import dev.hiett.clockmonster.events.ClockMonsterEventDispatcherService;
 import dev.hiett.clockmonster.services.job.storage.JobStorageProviderService;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
@@ -16,6 +18,9 @@ public class JobService {
 
     @Inject
     JobStorageProviderService jobStorageProviderService;
+
+    @Inject
+    ClockMonsterEventDispatcherService eventDispatcherService;
 
     public boolean isReady() {
         return jobStorageProviderService.isReady();
@@ -53,12 +58,14 @@ public class JobService {
     public Uni<Void> stepJob(IdentifiedJob job) {
         switch(job.getTime().getType()) {
             case ONCE: {
+                eventDispatcherService.dispatch(ClockMonsterEvent.JOB_REMOVED.build(job.getId()));
                 return jobStorageProviderService.getCurrentImplementation().deleteJob(job.getId());
             }
             case REPEATING: {
                 // Check if the number of iterations has passed. Add one to remember that we haven't yet incremented this iteration
                 if(job.getTime().getIterations() != -1 && job.getTime().getIterationsCount() + 1 >= job.getTime().getIterations()) {
                     // Delete the job
+                    eventDispatcherService.dispatch(ClockMonsterEvent.JOB_REMOVED.build(job.getId()));
                     return jobStorageProviderService.getCurrentImplementation().deleteJob(job.getId());
                 }
 
