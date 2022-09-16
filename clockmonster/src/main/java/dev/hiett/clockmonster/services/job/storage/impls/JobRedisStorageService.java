@@ -197,6 +197,10 @@ public class JobRedisStorageService implements JobStorageService {
                 .onItem().transform(r -> null);
     }
 
+    public RedisAPI getRedis() {
+        return this.redis;
+    }
+
     private String loadScript(String script) {
         return this.redis.scriptAndAwait(List.of("LOAD", script)).toString();
     }

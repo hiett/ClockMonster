@@ -27,7 +27,9 @@ public class JobService {
     }
 
     public Uni<IdentifiedJob> createJob(UnidentifiedJob job) {
-        return jobStorageProviderService.getCurrentImplementation().createJob(job);
+        return jobStorageProviderService.getCurrentImplementation().createJob(job)
+                .invoke(identifiedJob ->
+                        eventDispatcherService.dispatch(ClockMonsterEvent.JOB_CREATE.build(identifiedJob.getId())));
     }
 
     public Uni<IdentifiedJob> getJob(long id) {
@@ -39,11 +41,16 @@ public class JobService {
     }
 
     public Uni<Void> deleteJob(long id) {
-        return jobStorageProviderService.getCurrentImplementation().deleteJob(id);
+        return jobStorageProviderService.getCurrentImplementation().deleteJob(id)
+                .invoke(r -> eventDispatcherService.dispatch(ClockMonsterEvent.JOB_REMOVED.build(id)));
     }
 
     public Uni<Void> batchDeleteJobs(Long... ids) {
-        return jobStorageProviderService.getCurrentImplementation().batchDeleteJobs(ids);
+        return jobStorageProviderService.getCurrentImplementation().batchDeleteJobs(ids)
+                .invoke(r -> {
+                    for(long id : ids)
+                        eventDispatcherService.dispatch(ClockMonsterEvent.JOB_REMOVED.build(id));
+                });
     }
 
     public Uni<Void> updateJob(IdentifiedJob job) {
@@ -58,15 +65,13 @@ public class JobService {
     public Uni<Void> stepJob(IdentifiedJob job) {
         switch(job.getTime().getType()) {
             case ONCE: {
-                eventDispatcherService.dispatch(ClockMonsterEvent.JOB_REMOVED.build(job.getId()));
-                return jobStorageProviderService.getCurrentImplementation().deleteJob(job.getId());
+                return this.deleteJob(job.getId());
             }
             case REPEATING: {
                 // Check if the number of iterations has passed. Add one to remember that we haven't yet incremented this iteration
                 if(job.getTime().getIterations() != -1 && job.getTime().getIterationsCount() + 1 >= job.getTime().getIterations()) {
                     // Delete the job
-                    eventDispatcherService.dispatch(ClockMonsterEvent.JOB_REMOVED.build(job.getId()));
-                    return jobStorageProviderService.getCurrentImplementation().deleteJob(job.getId());
+                    return this.deleteJob(job.getId());
                 }
 
                 long newUnixTime = (System.currentTimeMillis() / 1000) + job.getTime().getInterval();

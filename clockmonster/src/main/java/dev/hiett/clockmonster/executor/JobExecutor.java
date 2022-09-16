@@ -19,7 +19,6 @@ import org.jboss.logging.Logger;
 import javax.enterprise.event.Observes;
 import javax.inject.Inject;
 import javax.inject.Singleton;
-import java.time.LocalTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
