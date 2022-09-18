@@ -5,9 +5,9 @@ public enum ClockMonsterEvent {
     JOB_CREATE,
     JOB_INVOKE_SUCCESSFUL,
     JOB_INVOKE_FAILURE,
-    JOB_REMOVED;
+    JOB_REMOVE;
 
     public WrappedClockMonsterEvent build(long jobId) {
-        return new WrappedClockMonsterEvent(this, jobId);
+        return new WrappedClockMonsterEvent(this, jobId, System.currentTimeMillis() / 1000);
     }
 }

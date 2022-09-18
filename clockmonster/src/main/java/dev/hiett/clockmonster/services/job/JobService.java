@@ -42,14 +42,14 @@ public class JobService {
 
     public Uni<Void> deleteJob(long id) {
         return jobStorageProviderService.getCurrentImplementation().deleteJob(id)
-                .invoke(r -> eventDispatcherService.dispatch(ClockMonsterEvent.JOB_REMOVED.build(id)));
+                .invoke(r -> eventDispatcherService.dispatch(ClockMonsterEvent.JOB_REMOVE.build(id)));
     }
 
     public Uni<Void> batchDeleteJobs(Long... ids) {
         return jobStorageProviderService.getCurrentImplementation().batchDeleteJobs(ids)
                 .invoke(r -> {
                     for(long id : ids)
-                        eventDispatcherService.dispatch(ClockMonsterEvent.JOB_REMOVED.build(id));
+                        eventDispatcherService.dispatch(ClockMonsterEvent.JOB_REMOVE.build(id));
                 });
     }
 

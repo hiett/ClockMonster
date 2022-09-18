@@ -11,11 +11,13 @@ public class WrappedClockMonsterEvent {
 
     private final ClockMonsterEvent event;
     private final long jobId;
+    private final long createdAtUnix;
 
-    @ConstructorProperties({"event", "jobId"})
-    public WrappedClockMonsterEvent(ClockMonsterEvent event, long jobId) {
+    @ConstructorProperties({"event", "jobId", "createdAtUnix"})
+    public WrappedClockMonsterEvent(ClockMonsterEvent event, long jobId, long createdAtUnix) {
         this.event = event;
         this.jobId = jobId;
+        this.createdAtUnix = createdAtUnix;
     }
 
     public ClockMonsterEvent getEvent() {
@@ -24,5 +26,9 @@ public class WrappedClockMonsterEvent {
 
     public long getJobId() {
         return jobId;
+    }
+
+    public long getCreatedAtUnix() {
+        return createdAtUnix;
     }
 }
