@@ -3,8 +3,8 @@ package dev.hiett.clockmonster.entities.action;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import dev.hiett.clockmonster.entities.action.http.HttpActionPayload;
-import dev.hiett.clockmonster.entities.action.http.SqsActionPayload;
+import dev.hiett.clockmonster.entities.action.impls.HttpActionPayload;
+import dev.hiett.clockmonster.entities.action.impls.SqsActionPayload;
 import io.quarkus.runtime.annotations.RegisterForReflection;
 import io.vertx.mutiny.sqlclient.Row;
 

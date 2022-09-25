@@ -3,7 +3,7 @@ package dev.hiett.clockmonster.services.dispatcher.impls;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.hiett.clockmonster.entities.action.ActionType;
-import dev.hiett.clockmonster.entities.action.http.HttpActionPayload;
+import dev.hiett.clockmonster.entities.action.impls.HttpActionPayload;
 import dev.hiett.clockmonster.services.dispatcher.Dispatcher;
 import io.smallrye.mutiny.Uni;
 

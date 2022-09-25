@@ -23,7 +23,11 @@ public class DispatcherService {
         if(dispatcher == null)
             return Uni.createFrom().item(false);
 
-        return dispatcher.dispatchJob(job.getAction().getPayload(), job.getPayload());
+        try {
+            return dispatcher.dispatchJob(job.getAction().getPayload(), job.getPayload());
+        } catch (Exception e) {
+            return Uni.createFrom().item(false);
+        }
     }
 
     private Dispatcher findDispatcher(ActionType actionType) {

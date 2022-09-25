@@ -1,4 +1,4 @@
-package dev.hiett.clockmonster.entities.action.http;
+package dev.hiett.clockmonster.entities.action.impls;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import dev.hiett.clockmonster.entities.action.ActionPayload;
