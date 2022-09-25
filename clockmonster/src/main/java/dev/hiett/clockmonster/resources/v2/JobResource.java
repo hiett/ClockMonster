@@ -1,5 +1,7 @@
 package dev.hiett.clockmonster.resources.v2;
 
+import dev.hiett.clockmonster.entities.GenericErrorException;
+import dev.hiett.clockmonster.entities.GenericErrorResponse;
 import dev.hiett.clockmonster.entities.job.UnidentifiedJob;
 import dev.hiett.clockmonster.services.job.JobService;
 import io.quarkus.arc.Unremovable;
@@ -25,10 +27,16 @@ public class JobResource {
     public Uni<Response> createJob(@Valid UnidentifiedJob payload) {
         return Uni.createFrom().item(payload)
                 .onItem().transform(p -> p.getAction().validateActionConfiguration() ? p : null)
-                .onItem().ifNull().fail()
+                .onItem().ifNull().failWith(new GenericErrorException(new GenericErrorResponse("Only one action configuration can be provided or you didn't provide one", 400)))
                 .chain(p -> jobService.createJob(p))
                 .onItem().transform(identifiedJob -> Response.ok(identifiedJob).build())
-                .onFailure().recoverWithItem(Response.status(422).entity("Invalid action configuration provided.").build());
+                .onFailure().recoverWithItem(e -> {
+                    if(e instanceof GenericErrorException) {
+                        return ((GenericErrorException) e).getResponse().toResponse();
+                    }
+
+                    return new GenericErrorResponse(e.getMessage(), 500).toResponse();
+                });
     }
 
     @GET
@@ -36,7 +44,7 @@ public class JobResource {
         return jobService.getJob(id)
                 .onItem().transform(identifiedJob -> {
                     if(identifiedJob == null)
-                        return Response.status(404).build();
+                        return new GenericErrorResponse("Cannot find that job!", 404).toResponse();
 
                     return Response.ok(identifiedJob).build();
                 });
