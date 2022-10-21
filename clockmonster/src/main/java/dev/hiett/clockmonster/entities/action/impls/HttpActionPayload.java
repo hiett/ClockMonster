@@ -7,6 +7,8 @@ import org.hibernate.validator.constraints.URL;
 
 import javax.validation.constraints.NotNull;
 import java.beans.ConstructorProperties;
+import java.util.HashMap;
+import java.util.Map;
 
 @RegisterForReflection
 public class HttpActionPayload implements ActionPayload {
@@ -18,10 +20,13 @@ public class HttpActionPayload implements ActionPayload {
     // Can be null to disable signing
     private final String signingSecret;
 
-    @ConstructorProperties({"http", "signingSecret"})
-    public HttpActionPayload(String url, String signingSecret) {
+    private final Map<String, String> additionalHeaders;
+
+    @ConstructorProperties({"http", "signingSecret", "additionalHeaders"})
+    public HttpActionPayload(String url, String signingSecret, Map<String, String> additionalHeaders) {
         this.url = url;
         this.signingSecret = signingSecret;
+        this.additionalHeaders = additionalHeaders;
     }
 
     public String getUrl() {
@@ -30,6 +35,13 @@ public class HttpActionPayload implements ActionPayload {
 
     public String getSigningSecret() {
         return signingSecret;
+    }
+
+    public Map<String, String> getAdditionalHeaders() {
+        if(additionalHeaders == null)
+            return new HashMap<>();
+
+        return additionalHeaders;
     }
 
     @JsonIgnore

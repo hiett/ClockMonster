@@ -18,6 +18,7 @@ import javax.ws.rs.core.Response;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.util.Map;
 import java.util.concurrent.Future;
 
 public class HttpDispatcher implements Dispatcher<HttpActionPayload> {
@@ -38,8 +39,13 @@ public class HttpDispatcher implements Dispatcher<HttpActionPayload> {
         }
 
         Invocation.Builder builder = client.target(httpActionPayload.getUrl())
-                .request()
-                .header("x-dispatched-from", "ClockMonster");
+                .request();
+
+        // Add all the additional headers that might be defined
+        for (Map.Entry<String, String> headerEntry : httpActionPayload.getAdditionalHeaders().entrySet())
+            builder = builder.header(headerEntry.getKey(), headerEntry.getValue());
+
+        builder = builder.header("x-dispatched-from", "ClockMonster");
 
         if(httpActionPayload.signingEnabled()) {
             // Signing is enabled, create a signature for x-webhook-signate

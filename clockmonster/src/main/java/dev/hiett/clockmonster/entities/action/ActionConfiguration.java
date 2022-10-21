@@ -95,7 +95,7 @@ public class ActionConfiguration {
     }
 
     public static ActionConfiguration fromRow(Row row, String column) {
-        String actionString = row.getString("action");
+        String actionString = row.getString(column);
         if(actionString != null) {
             try {
                 return objectMapper.readValue(actionString, ActionConfiguration.class);
