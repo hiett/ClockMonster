@@ -1,20 +1,27 @@
-export type TimeType = "ONCE" | "REPEATING";
-
-export type TimeConfiguration = {
-  nextRunUnix: number;
-} & ({
+export type TimeConfigurationModes = {
   type: "ONCE";
-  nextRunUnix: number;
 } | {
   type: "REPEATING";
   iterations: number;
   interval: number;
-});
+};
+
+export type TimeConfiguration = {
+  nextRunUnix: number;
+} & TimeConfigurationModes;
 
 export type ActionConfiguration = {
   http: {
     url: string;
     signingSecret?: string;
+    additionalHeaders?: Record<string, string>;
+  }
+} | {
+  sqs: {
+    queueUrl: string;
+    accessKeyId: string;
+    secretAccessKey: string;
+    region: string;
   }
 };
 
