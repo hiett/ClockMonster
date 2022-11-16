@@ -3,6 +3,7 @@ package dev.hiett.clockmonster.entities.job;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.hiett.clockmonster.entities.action.ActionConfiguration;
+import dev.hiett.clockmonster.entities.failure.FailureConfiguration;
 import dev.hiett.clockmonster.entities.time.TimeConfiguration;
 import io.quarkus.runtime.annotations.RegisterForReflection;
 import io.vertx.mutiny.sqlclient.Row;
@@ -14,8 +15,8 @@ public class IdentifiedJob extends UnidentifiedJob {
 
     private long id;
 
-    public IdentifiedJob(long id, Object payload, TimeConfiguration time, ActionConfiguration action) {
-        super(payload, time, action);
+    public IdentifiedJob(long id, Object payload, TimeConfiguration time, ActionConfiguration action, FailureConfiguration failure) {
+        super(payload, time, action, failure);
         this.id = id;
     }
 
@@ -46,7 +47,8 @@ public class IdentifiedJob extends UnidentifiedJob {
                 row.getLong("id"),
                 payload,
                 TimeConfiguration.fromRow(row),
-                ActionConfiguration.fromRow(row)
+                ActionConfiguration.fromRow(row),
+                FailureConfiguration.fromRow(row)
         );
     }
 }

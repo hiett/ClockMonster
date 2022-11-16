@@ -1,6 +1,5 @@
 import {IdentifiedJob, UnidentifiedJob} from "../types";
-import axios, {AxiosInstance} from "axios";
-import {JobBuilder} from "../builders";
+import axios, {AxiosError, AxiosInstance} from "axios";
 
 export class JobClient {
 
@@ -16,21 +15,32 @@ export class JobClient {
     });
   }
 
-  async createJob(job: UnidentifiedJob): Promise<IdentifiedJob> {
-    const {data} = await this.httpClient.post<IdentifiedJob>("/v1/job", job);
+  async createJob<T>(job: UnidentifiedJob<T>): Promise<IdentifiedJob<T>> {
+    const {data} = await this.httpClient.post<IdentifiedJob<T>>("/v2/job", job);
     return data;
   }
 
-  async getJob(id: number): Promise<IdentifiedJob> {
-    const {data} = await this.httpClient.get<IdentifiedJob>(`/v1/job?id=${id}`);
-    return data;
+  async getJob<T = unknown>(id: number): Promise<IdentifiedJob<T> | null> {
+    try {
+      const {data} = await this.httpClient.get<IdentifiedJob<T>>(`/v2/job?id=${id}`);
+      return data;
+    } catch (e: unknown) {
+      if (!axios.isAxiosError(e)) {
+        throw e; // Some other error, raise up the chain
+      }
+
+      const error = e as AxiosError;
+      if (error.response?.status === 404) {
+        // Not found
+        return null;
+      }
+
+      // Other HTTP error, not yet handled here
+      throw e;
+    }
   }
 
   async deleteJob(id: number): Promise<void> {
-    await this.httpClient.delete<IdentifiedJob>(`/v1/job?id=${id}`);
-  }
-
-  builder<T>(): JobBuilder<T> {
-    return new JobBuilder(this);
+    await this.httpClient.delete<IdentifiedJob>(`/v2/job?id=${id}`);
   }
 }
