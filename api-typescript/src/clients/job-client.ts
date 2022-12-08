@@ -1,16 +1,29 @@
 import {IdentifiedJob, UnidentifiedJob} from "../types";
 import axios, {AxiosError, AxiosInstance} from "axios";
 
+interface JobClientOptions {
+  bearerToken?: string
+}
+
 export class JobClient {
 
   private readonly baseUrl: string;
   private readonly httpClient: AxiosInstance;
 
-  constructor(baseUrl: string) {
+  constructor(baseUrl: string, options?: JobClientOptions) {
     this.baseUrl = baseUrl;
     this.httpClient = axios.create();
     this.httpClient.interceptors.request.use(config => {
       config.url = `${this.baseUrl}${config.url}`;
+
+      if (!config.headers) {
+        config.headers = {};
+      }
+
+      if (options?.bearerToken) {
+        config.headers["authorization"] = `Bearer ${options.bearerToken}`;
+      }
+
       return config;
     });
   }
