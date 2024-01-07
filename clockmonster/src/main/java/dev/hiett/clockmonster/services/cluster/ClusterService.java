@@ -1,6 +1,7 @@
 package dev.hiett.clockmonster.services.cluster;
 
 import dev.hiett.clockmonster.services.redis.RedisService;
+import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.scheduler.Scheduled;
 import io.vertx.mutiny.redis.client.RedisAPI;
@@ -49,6 +50,12 @@ public class ClusterService {
         updateNodeHash();
         checkForDeadNodes();
         findOffset();
+    }
+
+    void onStop(@Observes ShutdownEvent event) {
+        // We remove ourselves from the cluster hash table, the other nodes will automatically reschedule themselves
+        // the next time they check for dead nodes
+        getRedis().hdelAndAwait(List.of(clusterRedisKeys.getClusterHashKey(), String.valueOf(nodeId)));
     }
 
     @Scheduled(

@@ -85,16 +85,19 @@ public class JobExecutor {
 
         // Create a new job with the same specification, but with the new offset
         scheduler.newJob(SCHEDULER_IDENTITY)
-                .setDelayed(secondsToNext + "s")
+                .setDelayed(secondsToNext + "s") // todo: investigate when is 0s, sometimes behaving weirdly (waits at least 1 second?)
                 .setInterval(clusterService.getWaitTimeSeconds() + "s")
                 .setConcurrentExecution(Scheduled.ConcurrentExecution.SKIP)
 //                .setSkipPredicate(skipPredicate)
                 .setTask(scheduledExecution -> {
-                    try {
-                        // Artificially delay the job to be in line with the offset
-                        Thread.sleep(remainingMillis);
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
+                    if (remainingMillis > 0) {
+                        System.out.println("Waiting an additional " + remainingMillis + "ms");
+                        try {
+                            // Artificially delay the job to be in line with the offset
+                            Thread.sleep(remainingMillis);
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
+                        }
                     }
 
                     System.out.println("I AM RUNNING!!!!!!!!!!!!!");
