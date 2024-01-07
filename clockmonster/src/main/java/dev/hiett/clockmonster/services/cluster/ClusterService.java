@@ -8,6 +8,7 @@ import io.vertx.mutiny.redis.client.Response;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 import java.util.ArrayList;
@@ -25,20 +26,24 @@ import java.util.concurrent.TimeUnit;
 @Singleton
 public class ClusterService {
 
-    private static final String NODE_ID_GEN_KEY = "clockmonster-node-id-gen";
-    private static final String CLUSTER_HASH_KEY = "clockmonster-cluster";
-
     @Inject
     Logger log;
 
     @Inject
     RedisService redisService;
 
+    @Inject
+    ClusterRedisKeys clusterRedisKeys;
+
+    @ConfigProperty(name = "clockmonster.executor.wait-seconds", defaultValue = "5")
+    int waitTimeSeconds;
+
     private long nodeId;
     private float offset;
+    private float lookaheadPeriod;
 
     void onStart(@Observes StartupEvent event) {
-        nodeId = getRedis().incrAndAwait(NODE_ID_GEN_KEY).toLong();
+        nodeId = getRedis().incrAndAwait(clusterRedisKeys.getNodeIdGenKey()).toLong();
         log.info("ClusterService started with nodeId=" + nodeId);
 
         updateNodeHash();
@@ -60,21 +65,21 @@ public class ClusterService {
 
     private void updateNodeHash() {
         // Every 10 seconds, update the cluster hash table with this node's timestamp
-        getRedis().hsetAndAwait(List.of(CLUSTER_HASH_KEY, String.valueOf(nodeId), String.valueOf(System.currentTimeMillis())));
+        getRedis().hsetAndAwait(List.of(clusterRedisKeys.getClusterHashKey(), String.valueOf(nodeId), String.valueOf(System.currentTimeMillis())));
     }
 
     private void checkForDeadNodes() {
         // Only one node should check for dead nodes, so let's create a lock
-        if (!getRedis().setnxAndAwait("clockmonster-cluster-lock", "1").toBoolean()) {
+        if (!getRedis().setnxAndAwait(clusterRedisKeys.getClusterLockKey(), "1").toBoolean()) {
             // We didn't get the lock, so we'll just return
             return;
         }
 
         // Expire the lock in 10 seconds - we are the ones doing the check
-        getRedis().expireAndAwait(List.of("clockmonster-cluster-lock", "10"));
+        getRedis().expireAndAwait(List.of(clusterRedisKeys.getClusterLockKey(), "10"));
 
         // Load in the hash, and check for any nodes that haven't been updated in the last 30 seconds
-        Response response = getRedis().hgetallAndAwait(CLUSTER_HASH_KEY);
+        Response response = getRedis().hgetallAndAwait(clusterRedisKeys.getClusterHashKey());
         Set<String> nodeIds = response.getKeys();
         long now = System.currentTimeMillis();
 
@@ -87,19 +92,19 @@ public class ClusterService {
 
         if (deadNodes.isEmpty()) {
             // No dead nodes, so we can just remove the lock and return
-            getRedis().delAndAwait(List.of("clockmonster-cluster-lock"));
+            getRedis().delAndAwait(List.of(clusterRedisKeys.getClusterLockKey()));
             return;
         }
 
         // Remove the dead nodes from the cluster hash, and then remove the lock
         log.info("Removing dead nodes from cluster: " + deadNodes);
         List<String> clusterHashKeys = new ArrayList<>();
-        clusterHashKeys.add(CLUSTER_HASH_KEY);
+        clusterHashKeys.add(clusterRedisKeys.getClusterHashKey());
         clusterHashKeys.addAll(deadNodes.stream().map(String::valueOf).toList());
         getRedis().hdelAndAwait(clusterHashKeys);
 
         // Remove lock
-        getRedis().delAndAwait(List.of("clockmonster-cluster-lock"));
+        getRedis().delAndAwait(List.of(clusterRedisKeys.getClusterLockKey()));
     }
 
     private void findOffset() {
@@ -109,18 +114,29 @@ public class ClusterService {
         // multiply the index by the wait period
         // Now you have the offset from the start of the wait period that this node should run at
         List<Response> res = new ArrayList<>();
-        getRedis().hkeysAndAwait(CLUSTER_HASH_KEY).iterator().forEachRemaining(res::add);
-        List<Long> ids = res.stream().map(Response::toLong).toList();
+        getRedis().hkeysAndAwait(clusterRedisKeys.getClusterHashKey()).iterator().forEachRemaining(res::add);
+        List<Long> ids = res.stream().map(Response::toLong).sorted(Long::compareTo).toList();
 
         if (ids.isEmpty())
             return; // Not a valid cluster state
 
-        long waitPeriod = 10;
-        float offsetSize = waitPeriod / (float) ids.size();
+        this.lookaheadPeriod = this.waitTimeSeconds / (float) ids.size();
         int index = ids.indexOf(nodeId);
-        this.offset = index * offsetSize;
+        this.offset = index * this.lookaheadPeriod;
 
-        log.info("Wait period: " + waitPeriod + ", offset size: " + offsetSize + ", index: " + index + ", offset: " + this.offset);
+        log.info("Wait period: " + this.waitTimeSeconds + ", lookahead period: " + this.lookaheadPeriod + ", index: " + index + ", offset: " + this.offset);
+    }
+
+    public float getOffset() {
+        return offset;
+    }
+
+    public float getLookaheadPeriod() {
+        return lookaheadPeriod;
+    }
+
+    public int getWaitTimeSeconds() {
+        return waitTimeSeconds;
     }
 
     private RedisAPI getRedis() {

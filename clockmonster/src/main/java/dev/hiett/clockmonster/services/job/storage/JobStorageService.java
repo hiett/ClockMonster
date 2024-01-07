@@ -15,7 +15,7 @@ public interface JobStorageService {
 
     Uni<IdentifiedJob> getJob(long id);
 
-    Multi<IdentifiedJob> findJobs();
+    Multi<IdentifiedJob> findJobs(float lookaheadPeriodSeconds);
 
     Uni<Void> deleteJob(long id);
 

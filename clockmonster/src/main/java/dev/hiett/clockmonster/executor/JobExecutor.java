@@ -5,20 +5,31 @@ import dev.hiett.clockmonster.entities.job.IdentifiedJob;
 import dev.hiett.clockmonster.entities.job.TemporaryFailureJob;
 import dev.hiett.clockmonster.events.ClockMonsterEvent;
 import dev.hiett.clockmonster.events.ClockMonsterEventDispatcherService;
+import dev.hiett.clockmonster.services.cluster.ClusterService;
 import dev.hiett.clockmonster.services.dispatcher.DispatcherService;
 import dev.hiett.clockmonster.services.job.JobService;
 import io.quarkus.scheduler.Scheduled;
 import io.quarkus.scheduler.ScheduledExecution;
+import io.quarkus.scheduler.Scheduler;
+import io.quarkus.scheduler.Trigger;
+import io.smallrye.common.annotation.RunOnVirtualThread;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.jboss.logging.Logger;
 
+import java.text.SimpleDateFormat;
+import java.time.Duration;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Singleton
 public class JobExecutor {
+
+    private static final String SCHEDULER_IDENTITY = "clockmonster-job-executor";
+
+    @Inject
+    Scheduler scheduler;
 
     @Inject
     Logger log;
@@ -32,19 +43,73 @@ public class JobExecutor {
     @Inject
     ClockMonsterEventDispatcherService eventDispatcherService;
 
+    @Inject
+    ClusterService clusterService;
+
     private boolean processing = false;
 
-//    @ConfigProperty(name = "clockmonster.executor.wait-seconds", defaultValue = "5")
-//    int waitTimeSeconds;
+    private float lastOffset = 0;
 
-    @Scheduled(
-            every = "{clockmonster.executor.wait-seconds}",
-            concurrentExecution = Scheduled.ConcurrentExecution.SKIP,
-            skipExecutionIf = SkipPredicate.class
-    )
+    @RunOnVirtualThread
+    @Scheduled(every = "10s")
+    void syncExecutorLoop() {
+        log.info("Syncing executor loop...");
+
+        float offset = clusterService.getOffset();
+        if (offset == lastOffset) {
+            log.info("Offset hasn't changed, not rescheduling job.");
+            return;
+        }
+
+        // Unschedule the previous job
+        scheduler.unscheduleJob(SCHEDULER_IDENTITY);
+
+        // The offset changed, we need to reschedule the job to be back in line
+        // with where our node should be
+        // We need to get the next time whereby the offset is adjusted to be 0
+
+        long current = System.currentTimeMillis();
+        // Find the next time going forward whereby it is rounded to the waitTimeSeconds
+        long next = current + (clusterService.getWaitTimeSeconds() * 1000L) - (current % (clusterService.getWaitTimeSeconds() * 1000L));
+        long offsetMillis = (long) (offset * 1000L);
+
+        long millisTillNext = (next + offsetMillis) - current;
+
+        // Round down to get seconds to next, and then the remaining millis
+        // for some reason when delaying a scheduled job, it will only accept seconds so it will round any decimals
+        // we want to avoid that behaviour, so we grab the remaining millis and delay intentionally inside the virtual thread.
+        long secondsToNext = millisTillNext / 1000L;
+        long remainingMillis = millisTillNext % 1000L;
+
+        log.info("Waiting " + secondsToNext + "s then " + remainingMillis + "ms before first job iteration");
+
+        // Create a new job with the same specification, but with the new offset
+        scheduler.newJob(SCHEDULER_IDENTITY)
+                .setDelayed(secondsToNext + "s")
+                .setInterval(clusterService.getWaitTimeSeconds() + "s")
+                .setConcurrentExecution(Scheduled.ConcurrentExecution.SKIP)
+//                .setSkipPredicate(skipPredicate)
+                .setTask(scheduledExecution -> {
+                    try {
+                        // Artificially delay the job to be in line with the offset
+                        Thread.sleep(remainingMillis);
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+
+                    System.out.println("I AM RUNNING!!!!!!!!!!!!!");
+                    System.out.println("Time= " + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(System.currentTimeMillis()));
+                }, true)
+                .schedule();
+
+        this.lastOffset = offset;
+    }
+
     void executorLoop() {
         if (!jobService.isReady())
             return;
+
+        System.out.println("Executing job at " + System.currentTimeMillis() + " time= " + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(System.currentTimeMillis()));
 
         processing = true;
 

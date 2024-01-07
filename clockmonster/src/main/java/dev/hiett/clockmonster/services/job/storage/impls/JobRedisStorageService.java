@@ -107,7 +107,7 @@ public class JobRedisStorageService implements JobStorageService {
     }
 
     @Override
-    public Multi<IdentifiedJob> findJobs() {
+    public Multi<IdentifiedJob> findJobs(float lookaheadPeriodSeconds) {
         return this.getRedis().evalsha(List.of(this.popJobsLuaSha, "1", keys.getJobZlistKey(),
                         Long.valueOf(System.currentTimeMillis() / 1000).toString()))
                 .onItem().transformToMulti(r -> {

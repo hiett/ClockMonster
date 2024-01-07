@@ -4,6 +4,7 @@ import dev.hiett.clockmonster.entities.job.IdentifiedJob;
 import dev.hiett.clockmonster.entities.job.UnidentifiedJob;
 import dev.hiett.clockmonster.events.ClockMonsterEvent;
 import dev.hiett.clockmonster.events.ClockMonsterEventDispatcherService;
+import dev.hiett.clockmonster.services.cluster.ClusterService;
 import dev.hiett.clockmonster.services.job.storage.JobStorageProviderService;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
@@ -22,6 +23,9 @@ public class JobService {
     @Inject
     ClockMonsterEventDispatcherService eventDispatcherService;
 
+    @Inject
+    ClusterService clusterService;
+
     public boolean isReady() {
         return jobStorageProviderService.isReady();
     }
@@ -37,7 +41,7 @@ public class JobService {
     }
 
     public Multi<IdentifiedJob> findJobsToProcess() {
-        return jobStorageProviderService.getCurrentImplementation().findJobs();
+        return jobStorageProviderService.getCurrentImplementation().findJobs(clusterService.getLookaheadPeriod());
     }
 
     public Uni<Void> deleteJob(long id) {
