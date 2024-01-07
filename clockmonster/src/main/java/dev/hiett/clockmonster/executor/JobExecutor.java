@@ -12,8 +12,8 @@ import io.quarkus.scheduler.ScheduledExecution;
 import io.smallrye.mutiny.Uni;
 import org.jboss.logging.Logger;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.util.List;
 import java.util.stream.Collectors;
 

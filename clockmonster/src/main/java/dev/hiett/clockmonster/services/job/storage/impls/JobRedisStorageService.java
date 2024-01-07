@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.hiett.clockmonster.entities.job.IdentifiedJob;
 import dev.hiett.clockmonster.entities.job.UnidentifiedJob;
 import dev.hiett.clockmonster.services.job.storage.JobStorageService;
-import io.quarkus.redis.client.runtime.MutinyRedisAPI;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.Vertx;
@@ -17,8 +16,8 @@ import io.vertx.redis.client.RedisOptions;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -96,7 +95,7 @@ public class JobRedisStorageService implements JobStorageService {
     public void createConnection() {
         Redis internalRedis = Redis.createClient(vertx, new RedisOptions().setConnectionString(this.redisUrl));
         RedisConnection internalRedisConnection = internalRedis.connectAndAwait();
-        this.redis = MutinyRedisAPI.api(internalRedisConnection);
+        this.redis = RedisAPI.api(internalRedisConnection);
         this.popJobsLuaSha = this.loadScript(LUA_POP_JOBS_SCRIPT);
         this.removeJobsLuaSha = this.loadScript(LUA_BULK_REMOVE_JOBS_SCRIPT);
         this.createJobLuaSha = this.loadScript(LUA_CREATE_JOB_SCRIPT);

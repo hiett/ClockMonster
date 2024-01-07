@@ -8,7 +8,7 @@ import dev.hiett.clockmonster.entities.action.impls.SqsActionPayload;
 import io.quarkus.runtime.annotations.RegisterForReflection;
 import io.vertx.mutiny.sqlclient.Row;
 
-import javax.validation.*;
+import jakarta.validation.*;
 import java.beans.ConstructorProperties;
 import java.util.Set;
 

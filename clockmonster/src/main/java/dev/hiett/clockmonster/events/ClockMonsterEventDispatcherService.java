@@ -2,8 +2,8 @@ package dev.hiett.clockmonster.events;
 
 import io.vertx.core.eventbus.EventBus;
 
-import javax.inject.Inject;
-import javax.inject.Singleton;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 
 @Singleton
 public class ClockMonsterEventDispatcherService {

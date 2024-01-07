@@ -3,7 +3,7 @@ package dev.hiett.clockmonster.entities;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.quarkus.runtime.annotations.RegisterForReflection;
 
-import javax.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response;
 
 @RegisterForReflection
 public class GenericErrorResponse {

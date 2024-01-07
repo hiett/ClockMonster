@@ -6,7 +6,7 @@ import dev.hiett.clockmonster.services.dispatcher.impls.HttpDispatcher;
 import dev.hiett.clockmonster.services.dispatcher.impls.SqsDispatcher;
 import io.smallrye.mutiny.Uni;
 
-import javax.inject.Singleton;
+import jakarta.inject.Singleton;
 import java.util.List;
 
 @Singleton
