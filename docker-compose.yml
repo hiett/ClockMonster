@@ -1,25 +1,34 @@
 version: '3'
 
 services:
-  clockmonster:
-    image: hiett/clockmonster:latest
-    ports: ['8080:8080']
+  clockmonster1:
+    image: quarkus/clockmonster-gradle-jvm
+    depends_on: ['redis']
     environment:
-      JOB_STORAGE_METHOD: POSTGRES # Valid currently are: POSTGRES, REDIS
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_USERNAME: clockmonster
-      DB_PASSWORD: clockmonster
-      DB_DATABASE: clockmonster
+      JOB_STORAGE_METHOD: REDIS
+      REDIS_CONN_URL: 'redis://redis:6379'
+
+  clockmonster2:
+    image: quarkus/clockmonster-gradle-jvm
+    depends_on: ['redis']
+    environment:
+      JOB_STORAGE_METHOD: REDIS
+      REDIS_CONN_URL: 'redis://redis:6379'
+
+  clockmonster3:
+    image: quarkus/clockmonster-gradle-jvm
+    depends_on: ['redis']
+    environment:
+      JOB_STORAGE_METHOD: REDIS
+      REDIS_CONN_URL: 'redis://redis:6379'
+
+  clockmonster4:
+    image: quarkus/clockmonster-gradle-jvm
+    depends_on: ['redis']
+    environment:
+      JOB_STORAGE_METHOD: REDIS
+      REDIS_CONN_URL: 'redis://redis:6379'
 
   redis:
     image: redis
     ports: ['6379:6379']
-
-  postgres:
-    image: postgres
-    ports: ['5432:5432']
-    environment:
-      POSTGRES_USER: clockmonster
-      POSTGRES_PASSWORD: clockmonster
-      POSTGRES_DB: clockmonster

@@ -45,7 +45,7 @@ public class JobExecutor {
 
     private boolean processing = false;
 
-    private float lastOffset = 0;
+    private float lastOffset = -1;
 
     private long lastIterationTime = 0;
 
@@ -55,9 +55,8 @@ public class JobExecutor {
     @Scheduled(every = "10s")
     void syncExecutorLoop() {
         float offset = clusterService.getOffset();
-        if (offset == lastOffset) {
-            return;
-        }
+        if (offset == lastOffset)
+            return; // Do nothing, offset has not changed
 
         log.info("Syncing executor timer loop, offset=" + offset + "s");
 
