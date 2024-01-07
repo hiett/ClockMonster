@@ -25,22 +25,11 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-/**
- * zadd, zrangebyscore and zrem are used here to make ClockMonster work in redis as efficiently as possible!
- * Really like the score based commands. They're fun.
- *
- * Rather than all values being stored in the score set, they're stored in separate keys that are then linked to
- * via ids in the score set.
- *
- * This is because the system allows you to get values by ID, and I didn't want to scan the set. To minimise friction
- * everything that requires the multiple redis commands is done in Lua.
- */
 @Singleton
 public class JobRedisStorageService implements JobStorageService {
 
-    private static final String JOB_ID_INCR_KEY = "clockmonster-id-gen";
-    private static final String JOB_KEY_PREFIX = "clockmonster-job:";
-    private static final String JOB_ZLIST_KEY = "clockmonster-schedule";
+    @Inject
+    JobRedisStorageKeys keys;
 
     //language=Lua
     private static final String LUA_POP_JOBS_SCRIPT =
@@ -116,7 +105,7 @@ public class JobRedisStorageService implements JobStorageService {
                     if (jobJson == null)
                         return Uni.createFrom().item(null);
 
-                    return this.redis.evalsha(List.of(this.createJobLuaSha, "2", JOB_ZLIST_KEY, this.createJobKey(jobId),
+                    return this.redis.evalsha(List.of(this.createJobLuaSha, "2", keys.getJobZlistKey(), this.createJobKey(jobId),
                             jobJson, Long.valueOf(identifiedJob.getTime().getNextRunUnix()).toString()))
                             .onItem().transform(r -> identifiedJob);
                 });
@@ -130,7 +119,7 @@ public class JobRedisStorageService implements JobStorageService {
 
     @Override
     public Multi<IdentifiedJob> findJobs() {
-        return this.redis.evalsha(List.of(this.popJobsLuaSha, "1", JOB_ZLIST_KEY,
+        return this.redis.evalsha(List.of(this.popJobsLuaSha, "1", keys.getJobZlistKey(),
                         Long.valueOf(System.currentTimeMillis() / 1000).toString()))
                 .onItem().transformToMulti(r -> {
                     Iterator<Response> iterator = r.iterator();
@@ -162,7 +151,7 @@ public class JobRedisStorageService implements JobStorageService {
         args.addAll(idList);
 
         // args
-        args.add(JOB_ZLIST_KEY);
+        args.add(keys.getJobZlistKey());
 
         return this.redis.evalsha(args).onItem().transform(r -> null);
     }
@@ -191,7 +180,7 @@ public class JobRedisStorageService implements JobStorageService {
             return Uni.createFrom().failure(new IOException());
 
         // We also need to update the sorted set value
-        return this.redis.evalsha(List.of(updateJobLuaSha, "2", JOB_ZLIST_KEY, this.createJobKey(job.getId()),
+        return this.redis.evalsha(List.of(updateJobLuaSha, "2", keys.getJobZlistKey(), this.createJobKey(job.getId()),
                         jobJson, Long.valueOf(job.getTime().getNextRunUnix()).toString()))
                 .onItem().transform(r -> null);
     }
@@ -208,12 +197,12 @@ public class JobRedisStorageService implements JobStorageService {
      * Creates an incremental job ID in redis using incr
      */
     private Uni<Long> createJobId() {
-        return this.redis.incr(JOB_ID_INCR_KEY)
+        return this.redis.incr(keys.getJobIdIncrKey())
                 .onItem().transform(Response::toLong);
     }
 
     private String createJobKey(long id) {
-        return JOB_KEY_PREFIX + id;
+        return keys.getJobKeyPrefix() + id;
     }
 
     private String jsonifyJob(IdentifiedJob identifiedJob) {

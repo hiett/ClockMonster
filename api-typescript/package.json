@@ -13,7 +13,7 @@
     "registry":"https://npm.pkg.github.com"
   },
   "scripts": {
-    "dev": "ts-node src/index.ts",
+    "dev": "ts-node src/test.ts",
     "build": "tsc"
   },
   "dependencies": {

@@ -1,6 +1,5 @@
 package dev.hiett.clockmonster.services.job.storage;
 
-import dev.hiett.clockmonster.services.job.storage.impls.JobPostgresStorageService;
 import dev.hiett.clockmonster.services.job.storage.impls.JobRedisStorageService;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -14,11 +13,8 @@ import java.util.Arrays;
 @ApplicationScoped
 public class JobStorageProviderService {
 
-    @ConfigProperty(name = "clockmonster.storage.method", defaultValue = "POSTGRES")
+    @ConfigProperty(name = "clockmonster.storage.method", defaultValue = "REDIS")
     JobStorageMethod method;
-
-    @Inject
-    JobPostgresStorageService postgresImpl;
 
     @Inject
     JobRedisStorageService redisImpl;
@@ -46,7 +42,6 @@ public class JobStorageProviderService {
     public JobStorageService getCurrentImplementation() {
         switch (method) {
             case REDIS: return redisImpl;
-            case POSTGRES: return postgresImpl;
             default: return null; // TODO: Eventually, let's properly error handle this
         }
     }
