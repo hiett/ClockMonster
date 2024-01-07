@@ -3,12 +3,12 @@ package dev.hiett.clockmonster.services.job.storage;
 import dev.hiett.clockmonster.services.job.storage.impls.JobPostgresStorageService;
 import dev.hiett.clockmonster.services.job.storage.impls.JobRedisStorageService;
 import io.quarkus.runtime.StartupEvent;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.logging.Logger;
-
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
+
 import java.util.Arrays;
 
 @ApplicationScoped

@@ -2,9 +2,9 @@ package dev.hiett.clockmonster.entities.action.impls;
 
 import dev.hiett.clockmonster.entities.action.ActionPayload;
 import io.quarkus.runtime.annotations.RegisterForReflection;
+import jakarta.validation.constraints.NotNull;
 import org.hibernate.validator.constraints.URL;
 
-import jakarta.validation.constraints.NotNull;
 import java.beans.ConstructorProperties;
 
 @RegisterForReflection

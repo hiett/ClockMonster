@@ -1,7 +1,6 @@
 package dev.hiett.clockmonster.events;
 
 import io.vertx.core.eventbus.EventBus;
-
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 

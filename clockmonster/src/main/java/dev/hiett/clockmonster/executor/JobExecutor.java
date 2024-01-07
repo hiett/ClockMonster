@@ -10,10 +10,10 @@ import dev.hiett.clockmonster.services.job.JobService;
 import io.quarkus.scheduler.Scheduled;
 import io.quarkus.scheduler.ScheduledExecution;
 import io.smallrye.mutiny.Uni;
-import org.jboss.logging.Logger;
-
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import org.jboss.logging.Logger;
+
 import java.util.List;
 import java.util.stream.Collectors;
 

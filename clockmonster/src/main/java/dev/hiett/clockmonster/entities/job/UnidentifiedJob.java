@@ -4,7 +4,6 @@ import dev.hiett.clockmonster.entities.action.ActionConfiguration;
 import dev.hiett.clockmonster.entities.failure.FailureConfiguration;
 import dev.hiett.clockmonster.entities.time.TimeConfiguration;
 import io.quarkus.runtime.annotations.RegisterForReflection;
-
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 

@@ -2,7 +2,6 @@ package dev.hiett.clockmonster.entities;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.quarkus.runtime.annotations.RegisterForReflection;
-
 import jakarta.ws.rs.core.Response;
 
 @RegisterForReflection

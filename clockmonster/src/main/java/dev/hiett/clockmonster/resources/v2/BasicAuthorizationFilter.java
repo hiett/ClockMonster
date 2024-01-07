@@ -2,13 +2,12 @@ package dev.hiett.clockmonster.resources.v2;
 
 import dev.hiett.clockmonster.entities.GenericErrorResponse;
 import io.vertx.core.http.HttpServerRequest;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.container.ContainerRequestFilter;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.UriInfo;
 import jakarta.ws.rs.ext.Provider;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 @Provider
 public class BasicAuthorizationFilter implements ContainerRequestFilter {

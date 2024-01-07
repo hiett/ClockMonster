@@ -1,11 +1,11 @@
 package dev.hiett.clockmonster.resources.v2;
 
 import dev.hiett.clockmonster.entities.GenericErrorResponse;
-
 import jakarta.validation.ConstraintViolationException;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ExceptionMapper;
 import jakarta.ws.rs.ext.Provider;
+
 import java.util.stream.Collectors;
 
 @Provider

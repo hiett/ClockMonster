@@ -2,6 +2,8 @@ package dev.hiett.clockmonster.events.impls;
 
 import dev.hiett.clockmonster.events.AnnounceEventMethodDispatcher;
 import io.smallrye.mutiny.Uni;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import software.amazon.awssdk.auth.credentials.AwsCredentials;
@@ -9,9 +11,6 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sqs.SqsAsyncClient;
 import software.amazon.awssdk.services.sqs.model.SendMessageRequest;
-
-import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
 
 @Singleton
 public class SqsAnnounceEventMethod implements AnnounceEventMethodDispatcher {

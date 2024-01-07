@@ -6,10 +6,9 @@ import dev.hiett.clockmonster.services.job.storage.JobStorageService;
 import dev.hiett.clockmonster.services.job.storage.impls.JobRedisStorageService;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.redis.client.RedisAPI;
-import org.jboss.logging.Logger;
-
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import org.jboss.logging.Logger;
 
 @Singleton
 public class RedisAnnounceEventMethod implements AnnounceEventMethodDispatcher {

@@ -6,15 +6,15 @@ import dev.hiett.clockmonster.entities.action.ActionType;
 import dev.hiett.clockmonster.entities.action.impls.HttpActionPayload;
 import dev.hiett.clockmonster.services.dispatcher.Dispatcher;
 import io.smallrye.mutiny.Uni;
-
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import jakarta.ws.rs.client.Client;
 import jakarta.ws.rs.client.ClientBuilder;
 import jakarta.ws.rs.client.Entity;
 import jakarta.ws.rs.client.Invocation;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
