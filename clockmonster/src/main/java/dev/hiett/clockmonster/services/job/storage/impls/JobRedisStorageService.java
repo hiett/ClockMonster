@@ -10,6 +10,7 @@ import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.redis.client.RedisAPI;
 import io.vertx.mutiny.redis.client.Response;
+import io.vertx.redis.client.ResponseType;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.jboss.logging.Logger;
@@ -110,6 +111,11 @@ public class JobRedisStorageService implements JobStorageService {
         return this.getRedis().evalsha(List.of(this.popJobsLuaSha, "1", keys.getJobZlistKey(),
                         Long.valueOf(System.currentTimeMillis() / 1000).toString()))
                 .onItem().transformToMulti(r -> {
+                    if (r.type() != ResponseType.MULTI)
+                        return Multi.createFrom().empty(); // No jobs
+
+//                    log.info(r.type());
+//                    log.info(r);
                     Iterator<Response> iterator = r.iterator();
 
                     return Multi.createFrom().items(
