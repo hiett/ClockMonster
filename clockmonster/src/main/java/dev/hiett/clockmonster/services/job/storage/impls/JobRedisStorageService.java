@@ -5,24 +5,19 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.hiett.clockmonster.entities.job.IdentifiedJob;
 import dev.hiett.clockmonster.entities.job.UnidentifiedJob;
 import dev.hiett.clockmonster.services.job.storage.JobStorageService;
+import dev.hiett.clockmonster.services.redis.RedisService;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
-import io.vertx.mutiny.core.Vertx;
-import io.vertx.mutiny.redis.client.Redis;
 import io.vertx.mutiny.redis.client.RedisAPI;
-import io.vertx.mutiny.redis.client.RedisConnection;
 import io.vertx.mutiny.redis.client.Response;
-import io.vertx.redis.client.RedisOptions;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
-import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 @Singleton
@@ -65,15 +60,11 @@ public class JobRedisStorageService implements JobStorageService {
     ObjectMapper objectMapper;
 
     @Inject
-    Vertx vertx;
-
-    @Inject
     Logger log;
 
-    @ConfigProperty(name = "quarkus.redis.hosts", defaultValue = "")
-    String redisUrl;
+    @Inject
+    RedisService redisService;
 
-    private RedisAPI redis;
     private String popJobsLuaSha, removeJobsLuaSha, createJobLuaSha, updateJobLuaSha;
 
     /**
@@ -82,9 +73,6 @@ public class JobRedisStorageService implements JobStorageService {
      */
     @Override
     public void createConnection() {
-        Redis internalRedis = Redis.createClient(vertx, new RedisOptions().setConnectionString(this.redisUrl));
-        RedisConnection internalRedisConnection = internalRedis.connectAndAwait();
-        this.redis = RedisAPI.api(internalRedisConnection);
         this.popJobsLuaSha = this.loadScript(LUA_POP_JOBS_SCRIPT);
         this.removeJobsLuaSha = this.loadScript(LUA_BULK_REMOVE_JOBS_SCRIPT);
         this.createJobLuaSha = this.loadScript(LUA_CREATE_JOB_SCRIPT);
@@ -105,7 +93,7 @@ public class JobRedisStorageService implements JobStorageService {
                     if (jobJson == null)
                         return Uni.createFrom().item(null);
 
-                    return this.redis.evalsha(List.of(this.createJobLuaSha, "2", keys.getJobZlistKey(), this.createJobKey(jobId),
+                    return this.getRedis().evalsha(List.of(this.createJobLuaSha, "2", keys.getJobZlistKey(), this.createJobKey(jobId),
                             jobJson, Long.valueOf(identifiedJob.getTime().getNextRunUnix()).toString()))
                             .onItem().transform(r -> identifiedJob);
                 });
@@ -113,13 +101,13 @@ public class JobRedisStorageService implements JobStorageService {
 
     @Override
     public Uni<IdentifiedJob> getJob(long id) {
-        return this.redis.get(this.createJobKey(id)).onItem().ifNotNull()
+        return this.getRedis().get(this.createJobKey(id)).onItem().ifNotNull()
                 .transform(r -> this.fromJson(r.toString()));
     }
 
     @Override
     public Multi<IdentifiedJob> findJobs() {
-        return this.redis.evalsha(List.of(this.popJobsLuaSha, "1", keys.getJobZlistKey(),
+        return this.getRedis().evalsha(List.of(this.popJobsLuaSha, "1", keys.getJobZlistKey(),
                         Long.valueOf(System.currentTimeMillis() / 1000).toString()))
                 .onItem().transformToMulti(r -> {
                     Iterator<Response> iterator = r.iterator();
@@ -141,7 +129,7 @@ public class JobRedisStorageService implements JobStorageService {
 
     @Override
     public Uni<Void> batchDeleteJobs(Long... ids) {
-        List<String> idList = Arrays.stream(ids).map(this::createJobKey).collect(Collectors.toList());
+        List<String> idList = Arrays.stream(ids).map(this::createJobKey).toList();
 
         List<String> args = new ArrayList<>();
         args.add(this.removeJobsLuaSha);
@@ -153,7 +141,7 @@ public class JobRedisStorageService implements JobStorageService {
         // args
         args.add(keys.getJobZlistKey());
 
-        return this.redis.evalsha(args).onItem().transform(r -> null);
+        return this.getRedis().evalsha(args).onItem().transform(r -> null);
     }
 
     @Override
@@ -180,24 +168,20 @@ public class JobRedisStorageService implements JobStorageService {
             return Uni.createFrom().failure(new IOException());
 
         // We also need to update the sorted set value
-        return this.redis.evalsha(List.of(updateJobLuaSha, "2", keys.getJobZlistKey(), this.createJobKey(job.getId()),
+        return this.getRedis().evalsha(List.of(updateJobLuaSha, "2", keys.getJobZlistKey(), this.createJobKey(job.getId()),
                         jobJson, Long.valueOf(job.getTime().getNextRunUnix()).toString()))
                 .onItem().transform(r -> null);
     }
 
-    public RedisAPI getRedis() {
-        return this.redis;
-    }
-
     private String loadScript(String script) {
-        return this.redis.scriptAndAwait(List.of("LOAD", script)).toString();
+        return this.getRedis().scriptAndAwait(List.of("LOAD", script)).toString();
     }
 
     /**
      * Creates an incremental job ID in redis using incr
      */
     private Uni<Long> createJobId() {
-        return this.redis.incr(keys.getJobIdIncrKey())
+        return this.getRedis().incr(keys.getJobIdIncrKey())
                 .onItem().transform(Response::toLong);
     }
 
@@ -212,6 +196,10 @@ public class JobRedisStorageService implements JobStorageService {
             e.printStackTrace();
             return null;
         }
+    }
+
+    private RedisAPI getRedis() {
+        return this.redisService.getRedis();
     }
 
     public IdentifiedJob fromJson(String jobJson) {

@@ -51,18 +51,41 @@ public class JobExecutor {
         long jobExecutionStartTime = System.currentTimeMillis();
         Uni<List<IdentifiedJob>> jobList = jobService.findJobsToProcess().collect().asList();
 
-        jobList.onItem().transform(arr -> arr.stream().map(this::processJob).collect(Collectors.toList()))
-                .onItem().transform(r -> r.isEmpty() ? null : r)
-                .onItem().ifNull().fail()
-                .chain(r -> Uni.join().all(r).andCollectFailures())
-                .onItem().transform(resultList -> null)
-                .onFailure().recoverWithItem(() -> null)
-                .subscribe().with(res -> {
-                    long jobExecutionElapsedTime = System.currentTimeMillis() - jobExecutionStartTime;
-                    log.info("Job execution took " + jobExecutionElapsedTime + "ms.");
+        jobList.subscribe().with(res -> {
+            res.forEach(this::handleJob);
 
-                    processing = false;
-                });
+            processing = false;
+        });
+
+//        jobList.onItem().transform(arr -> arr.stream().map(this::processJob).collect(Collectors.toList()))
+//                .onItem().transform(r -> r.isEmpty() ? null : r)
+//                .onItem().ifNull().fail()
+//                .chain(r -> Uni.join().all(r).andCollectFailures())
+//                .onItem().transform(resultList -> null)
+//                .onFailure().recoverWithItem(() -> null)
+//                .subscribe().with(res -> {
+//                    long jobExecutionElapsedTime = System.currentTimeMillis() - jobExecutionStartTime;
+//                    log.info("Job execution took " + jobExecutionElapsedTime + "ms.");
+//
+//                    processing = false;
+//                });
+    }
+
+    private void handleJob(IdentifiedJob job) {
+        long nextRunUnix = job.getTime().getNextRunUnix();
+        long currentTime = System.currentTimeMillis() / 1000;
+        if (nextRunUnix <= currentTime) {
+            long secondsDiff = currentTime - nextRunUnix;
+
+            // The job is in the past, process it
+            log.info("Job " + job.getId() + " is in the past, processing. It was " + secondsDiff + " seconds late.");
+            return;
+        }
+
+        // We want to schedule it at the start of the second, so we need to deal in milliseconds here
+        long waitTime = (nextRunUnix * 1000) - System.currentTimeMillis();
+
+        log.info("Job " + job.getId() + " is in the future, waiting " + waitTime + "ms.");
     }
 
     public boolean isProcessing() {
