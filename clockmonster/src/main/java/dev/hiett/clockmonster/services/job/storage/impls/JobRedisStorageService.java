@@ -28,21 +28,44 @@ public class JobRedisStorageService implements JobStorageService {
     JobRedisStorageKeys keys;
 
     //language=Lua
-    private static final String LUA_POP_JOBS_SCRIPT =
-            "local key, now = KEYS[1], ARGV[1]\n" +
-                    "local jobs = redis.call(\"zrangebyscore\", key, \"-inf\", now)\n" +
-                    "\n" +
-                    "if jobs[1] then \n" +
-                    "    return redis.call(\"mget\", unpack(jobs))\n" +
-                    "else\n" +
-                    "    return {}\n" +
-                    "end";
+    private static final String LUA_POP_JOBS_SCRIPT = """
+            local key, now = KEYS[1], ARGV[1]
+            local jobs = redis.call("zrange", key, "-inf", now, "BYSCORE")
+            
+            if jobs[1] then -- if there are jobs to process
+                -- iterate over each job and try to apply a lock
+                -- if a lock already exists, then we skip it, and don't include it in the mget
+                for i, job in ipairs(jobs) do
+                    local lock = redis.call("set", job .. ":lock", "1", "NX", "EX", 10) -- 10 seconds
+                    if not lock then -- if we can't get a lock, then remove it from the list
+                        table.remove(jobs, i)
+                    end
+                end
+            
+                if jobs[1] then -- if there are any jobs after lock checking
+                    return redis.call("mget", unpack(jobs))
+                else
+                    return
+                end
+            else
+                return
+            end
+            """;
 
     //language=Lua
-    private static final String LUA_BULK_REMOVE_JOBS_SCRIPT =
-            "local schkey = ARGV[1] \n" +
-                    "redis.call(\"del\", unpack(KEYS))\n" +
-                    "redis.call(\"zrem\", schkey, unpack(KEYS))";
+    private static final String LUA_BULK_REMOVE_JOBS_SCRIPT = """
+            local schkey = ARGV[1]
+            
+            local deleteKeys = {}
+            -- for each of the keys, include the lock variant
+            for i, key in ipairs(KEYS) do
+                table.insert(deleteKeys, key)
+                table.insert(deleteKeys, key .. ":lock")
+            end
+            
+            redis.call("del", unpack(deleteKeys))
+            redis.call("zrem", schkey, unpack(KEYS)) -- locks don't exist in the sorted set
+            """;
 
     //language=Lua
     private static final String LUA_CREATE_JOB_SCRIPT =
@@ -54,7 +77,6 @@ public class JobRedisStorageService implements JobStorageService {
     private static final String LUA_UPDATE_JOB_SCRIPT =
             "local schkey, key, payload, extime = KEYS[1], KEYS[2], ARGV[1], ARGV[2]\n" +
                     "redis.call(\"set\", key, payload)\n" +
-                    "redis.call(\"zrem\", schkey, key)\n" +
                     "redis.call(\"zadd\", schkey, extime, key)";
 
     @Inject
@@ -115,10 +137,8 @@ public class JobRedisStorageService implements JobStorageService {
                         Long.valueOf(periodLong).toString()))
                 .onItem().transformToMulti(r -> {
                     if (r.type() != ResponseType.MULTI)
-                        return Multi.createFrom().empty(); // No jobs
+                        return Multi.createFrom().empty();
 
-//                    log.info(r.type());
-//                    log.info(r);
                     Iterator<Response> iterator = r.iterator();
 
                     return Multi.createFrom().items(
@@ -156,6 +176,7 @@ public class JobRedisStorageService implements JobStorageService {
     @Override
     public Uni<Void> updateJobTime(long id, LocalDateTime jobTime, boolean addIteration) {
         // There is some JSON parsing that has to go on here
+        // TODO: Check for an existing lock, this job may not be directly mutable in this context
         return this.getJob(id)
                 .onItem().ifNull().fail()
                 .onItem().transform(res -> {

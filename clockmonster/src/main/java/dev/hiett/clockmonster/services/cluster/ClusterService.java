@@ -77,13 +77,11 @@ public class ClusterService {
 
     private void checkForDeadNodes() {
         // Only one node should check for dead nodes, so let's create a lock
-        if (!getRedis().setnxAndAwait(clusterRedisKeys.getClusterLockKey(), "1").toBoolean()) {
+        Response lockResp = getRedis().setAndAwait(List.of(clusterRedisKeys.getClusterLockKey(), "1", "NX", "EX", "10"));
+        if (lockResp == null) {
             // We didn't get the lock, so we'll just return
             return;
         }
-
-        // Expire the lock in 10 seconds - we are the ones doing the check
-        getRedis().expireAndAwait(List.of(clusterRedisKeys.getClusterLockKey(), "10"));
 
         // Load in the hash, and check for any nodes that haven't been updated in the last 30 seconds
         Response response = getRedis().hgetallAndAwait(clusterRedisKeys.getClusterHashKey());
