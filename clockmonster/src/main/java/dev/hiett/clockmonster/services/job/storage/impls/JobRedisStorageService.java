@@ -108,8 +108,11 @@ public class JobRedisStorageService implements JobStorageService {
 
     @Override
     public Multi<IdentifiedJob> findJobs(float lookaheadPeriodSeconds) {
+        int flooredLookaheadPeriod = (int) Math.floor(lookaheadPeriodSeconds);
+        long periodLong = (System.currentTimeMillis() / 1000) + flooredLookaheadPeriod;
+
         return this.getRedis().evalsha(List.of(this.popJobsLuaSha, "1", keys.getJobZlistKey(),
-                        Long.valueOf(System.currentTimeMillis() / 1000).toString()))
+                        Long.valueOf(periodLong).toString()))
                 .onItem().transformToMulti(r -> {
                     if (r.type() != ResponseType.MULTI)
                         return Multi.createFrom().empty(); // No jobs

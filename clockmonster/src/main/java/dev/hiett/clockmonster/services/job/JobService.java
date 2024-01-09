@@ -67,13 +67,13 @@ public class JobService {
      * @return void
      */
     public Uni<Void> stepJob(IdentifiedJob job) {
-        switch(job.getTime().getType()) {
-            case ONCE: {
+        switch (job.getTime().getType()) {
+            case ONCE -> {
                 return this.deleteJob(job.getId());
             }
-            case REPEATING: {
+            case REPEATING -> {
                 // Check if the number of iterations has passed. Add one to remember that we haven't yet incremented this iteration
-                if(job.getTime().getIterations() != -1 && job.getTime().getIterationsCount() + 1 >= job.getTime().getIterations()) {
+                if (job.getTime().getIterations() != -1 && job.getTime().getIterationsCount() + 1 >= job.getTime().getIterations()) {
                     // Delete the job
                     return this.deleteJob(job.getId());
                 }
@@ -84,7 +84,9 @@ public class JobService {
                 // Update the job time and number of iterations
                 return jobStorageProviderService.getCurrentImplementation().updateJobTime(job.getId(), localDateTime, true);
             }
-            default: return Uni.createFrom().voidItem();
+            default -> {
+                return Uni.createFrom().voidItem();
+            }
         }
     }
 }

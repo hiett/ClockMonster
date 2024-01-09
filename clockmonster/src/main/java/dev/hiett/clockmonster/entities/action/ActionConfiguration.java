@@ -69,7 +69,7 @@ public class ActionConfiguration {
         ActionPayload payload = this.getPayload();
         Set<ConstraintViolation<ActionPayload>> validationViolations = validator.validate(payload);
 
-        return validationViolations.size() <= 0;
+        return validationViolations.isEmpty();
     }
 
     // Individual type getters for reflection

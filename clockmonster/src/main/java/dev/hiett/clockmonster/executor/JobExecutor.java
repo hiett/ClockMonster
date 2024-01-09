@@ -1,5 +1,7 @@
 package dev.hiett.clockmonster.executor;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.hiett.clockmonster.entities.failure.FailureConfiguration;
 import dev.hiett.clockmonster.entities.job.IdentifiedJob;
 import dev.hiett.clockmonster.entities.job.TemporaryFailureJob;
@@ -18,9 +20,12 @@ import org.jboss.logging.Logger;
 
 import java.text.SimpleDateFormat;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.stream.Collectors;
 
 @Singleton
 public class JobExecutor {
@@ -43,13 +48,15 @@ public class JobExecutor {
     @Inject
     ClusterService clusterService;
 
+    @Inject
+    ObjectMapper objectMapper;
+
     private boolean processing = false;
 
     private float lastOffset = -1;
 
-    private long lastIterationTime = 0;
-
     private Future<?> timingFuture;
+    private Map<Long, Future<?>> futureJobMap = new ConcurrentHashMap<>();
 
     @RunOnVirtualThread
     @Scheduled(every = "10s")
@@ -88,66 +95,102 @@ public class JobExecutor {
                 }
 
                 // Run the executor loop
-                log.info("Running executor loop...");
-                log.info("I AM RUNNING!!!!!!!!!!!!!");
-                log.info("Time= " + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(System.currentTimeMillis()));
+//                log.info("Running executor loop...");
+//                log.info("I AM RUNNING!!!!!!!!!!!!!");
+//                log.info("Time= " + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(System.currentTimeMillis()));
+//
+//                long currentTimeMs = System.currentTimeMillis();
+//                long timeSinceLastIteration = currentTimeMs - lastIterationTime;
+//                log.info("Time since last iteration: " + timeSinceLastIteration + "ms");
+//                lastIterationTime = currentTimeMs;
 
-                long currentTimeMs = System.currentTimeMillis();
-                long timeSinceLastIteration = currentTimeMs - lastIterationTime;
-                log.info("Time since last iteration: " + timeSinceLastIteration + "ms");
-                lastIterationTime = currentTimeMs;
+                this.executorLoop();
             }
         });
 
         this.lastOffset = offset;
     }
 
-    void executorLoop() {
+    private void executorLoop() {
         if (!jobService.isReady())
             return;
 
-        System.out.println("Executing job at " + System.currentTimeMillis() + " time= " + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(System.currentTimeMillis()));
+        log.info("Preparing execution of jobs at " + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(System.currentTimeMillis()));
 
         processing = true;
 
         long jobExecutionStartTime = System.currentTimeMillis();
         Uni<List<IdentifiedJob>> jobList = jobService.findJobsToProcess().collect().asList();
 
-        jobList.subscribe().with(res -> {
-            res.forEach(this::handleJob);
+        jobList.onItem().transform(arr -> arr.stream().map(this::handleJob).collect(Collectors.toList()))
+                .onItem().transform(r -> r.isEmpty() ? null : r)
+                .onItem().ifNull().fail()
+                .chain(r -> Uni.join().all(r).andCollectFailures())
+                .onItem().transform(resultList -> null)
+                .onFailure().recoverWithItem(() -> null)
+                .subscribe().with(res -> {
+                    long jobExecutionElapsedTime = System.currentTimeMillis() - jobExecutionStartTime;
+                    log.info("Job execution took " + jobExecutionElapsedTime + "ms.");
 
-            processing = false;
-        });
-
-//        jobList.onItem().transform(arr -> arr.stream().map(this::processJob).collect(Collectors.toList()))
-//                .onItem().transform(r -> r.isEmpty() ? null : r)
-//                .onItem().ifNull().fail()
-//                .chain(r -> Uni.join().all(r).andCollectFailures())
-//                .onItem().transform(resultList -> null)
-//                .onFailure().recoverWithItem(() -> null)
-//                .subscribe().with(res -> {
-//                    long jobExecutionElapsedTime = System.currentTimeMillis() - jobExecutionStartTime;
-//                    log.info("Job execution took " + jobExecutionElapsedTime + "ms.");
-//
-//                    processing = false;
-//                });
+                    processing = false;
+                });
     }
 
-    private void handleJob(IdentifiedJob job) {
+    private Uni<Void> handleJob(IdentifiedJob job) {
+        try {
+            String jsonOfJob = objectMapper.writeValueAsString(job);
+            System.out.println(jsonOfJob);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+
         long nextRunUnix = job.getTime().getNextRunUnix();
         long currentTime = System.currentTimeMillis() / 1000;
         if (nextRunUnix <= currentTime) {
             long secondsDiff = currentTime - nextRunUnix;
 
-            // The job is in the past, process it
+            // The job is in the past, process it right now
             log.info("Job " + job.getId() + " is in the past, processing. It was " + secondsDiff + " seconds late.");
-            return;
+
+            return this.processJob(job);
         }
 
         // We want to schedule it at the start of the second, so we need to deal in milliseconds here
         long waitTime = (nextRunUnix * 1000) - System.currentTimeMillis();
-
         log.info("Job " + job.getId() + " is in the future, waiting " + waitTime + "ms.");
+
+        Future<?> jobFuture = EXECUTOR_SERVICE.submit(() -> {
+            try {
+                Thread.sleep(waitTime);
+            } catch (InterruptedException e) {
+                return; // Totally okay that it was interrupted - it has been cancelled
+            }
+
+            log.info("Firing job " + job.getId() + "!");
+
+            // Fire off the process
+            processJob(job).subscribe().with((res) -> {
+                log.info("Completed delayed job " + job.getId() + ".");
+            });
+        });
+        futureJobMap.put(job.getId(), jobFuture);
+
+        return Uni.createFrom().voidItem();
+    }
+
+    /**
+     * Cancels a job that has been locked and internally queued on this node
+     * @param jobId job id to cancel
+     * @return true if the job was cancelled, false if it was not found
+     */
+    public boolean cancelFutureJob(long jobId) {
+        Future<?> future = futureJobMap.remove(jobId);
+        if (future != null) {
+            future.cancel(true);
+            return true;
+        }
+
+        return false;
     }
 
     public boolean isProcessing() {
@@ -160,7 +203,7 @@ public class JobExecutor {
 
         return dispatcherService.dispatchJob(job)
                 .chain(successful -> {
-                   if(successful) {
+                   if (successful) {
                        eventDispatcherService.dispatch(ClockMonsterEvent.JOB_INVOKE_SUCCESSFUL.build(job.getId()));
 
                        // Mark job as complete
