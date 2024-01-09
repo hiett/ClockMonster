@@ -53,7 +53,7 @@ public class JobExecutor {
     private float lastOffset = -1;
 
     private Future<?> timingFuture;
-    private Map<Long, Future<?>> futureJobMap = new ConcurrentHashMap<>();
+    private final Map<Long, Future<?>> futureJobMap = new ConcurrentHashMap<>();
 
     @RunOnVirtualThread
     @Scheduled(every = "10s")
@@ -167,7 +167,7 @@ public class JobExecutor {
 
             // Fire off the process
             processJob(job, waitTime).subscribe().with((res) -> {
-                log.info("Completed delayed job " + job.getId() + ".");
+                futureJobMap.remove(job.getId()); // Job iteration completed, remove it from the map
             });
         });
         futureJobMap.put(job.getId(), jobFuture);
