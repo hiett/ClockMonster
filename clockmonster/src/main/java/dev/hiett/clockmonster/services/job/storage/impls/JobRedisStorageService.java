@@ -203,6 +203,13 @@ public class JobRedisStorageService implements JobStorageService {
                 .onItem().transform(r -> null);
     }
 
+    @Override
+    public Uni<Void> extendJobLock(long id) {
+        // 10 seconds is the lock duration
+        return this.getRedis().expire(List.of(this.createJobKey(id) + ":lock", "10"))
+                .onItem().transform(r -> null);
+    }
+
     private String loadScript(String script) {
         return this.getRedis().scriptAndAwait(List.of("LOAD", script)).toString();
     }

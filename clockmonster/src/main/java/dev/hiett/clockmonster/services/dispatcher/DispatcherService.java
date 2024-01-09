@@ -9,6 +9,7 @@ import jakarta.inject.Singleton;
 
 import java.util.List;
 
+@SuppressWarnings("rawtypes")
 @Singleton
 public class DispatcherService {
 
@@ -24,6 +25,7 @@ public class DispatcherService {
             return Uni.createFrom().item(false);
 
         try {
+            //noinspection unchecked
             return dispatcher.dispatchJob(job.getAction().getPayload(), job.getPayload());
         } catch (Exception e) {
             return Uni.createFrom().item(false);

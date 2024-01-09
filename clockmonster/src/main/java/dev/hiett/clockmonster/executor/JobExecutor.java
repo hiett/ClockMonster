@@ -21,10 +21,7 @@ import org.jboss.logging.Logger;
 import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 @Singleton
@@ -152,7 +149,7 @@ public class JobExecutor {
             // The job is in the past, process it right now
             log.info("Job " + job.getId() + " is in the past, processing. It was " + secondsDiff + " seconds late.");
 
-            return this.processJob(job);
+            return this.processJob(job, 0);
         }
 
         // We want to schedule it at the start of the second, so we need to deal in milliseconds here
@@ -169,7 +166,7 @@ public class JobExecutor {
             log.info("Firing job " + job.getId() + "!");
 
             // Fire off the process
-            processJob(job).subscribe().with((res) -> {
+            processJob(job, waitTime).subscribe().with((res) -> {
                 log.info("Completed delayed job " + job.getId() + ".");
             });
         });
@@ -197,11 +194,11 @@ public class JobExecutor {
         return processing;
     }
 
-    private Uni<Void> processJob(IdentifiedJob job) {
+    private Uni<Void> processJob(IdentifiedJob job, long estTimeSinceLockCreationMs) {
         log.info("Executing job " + job.getId() + ", type=" + job.getTime().getType() + ", method="
                 + job.getAction().getType());
 
-        return dispatcherService.dispatchJob(job)
+        CompletableFuture<Void> jobCompletableFuture = dispatcherService.dispatchJob(job)
                 .chain(successful -> {
                    if (successful) {
                        eventDispatcherService.dispatch(ClockMonsterEvent.JOB_INVOKE_SUCCESSFUL.build(job.getId()));
@@ -238,7 +235,35 @@ public class JobExecutor {
                            return jobService.updateJob(job);
                        }
                    }
+                }).subscribeAsCompletionStage();
+
+        Future<?> jobMonitor = EXECUTOR_SERVICE.submit(() -> {
+            long initialWaitTime = 7500 - estTimeSinceLockCreationMs;
+            if (initialWaitTime > 0) { // Less than 0 and we want to do it right away
+                try {
+                    Thread.sleep(initialWaitTime);
+                } catch (InterruptedException e) {
+                    return; // Totally okay, cancel was called
+                }
+            }
+
+            while (!jobCompletableFuture.isDone()) {
+                // Extend the lock
+                jobService.extendJobLock(job.getId()).subscribe().with((res) -> {
+                    log.info("Extended lock on job " + job.getId() + " due to still processing.");
                 });
+
+                try {
+                    Thread.sleep(7500); // Less than the lock amount, but for a good safety net
+                } catch (InterruptedException e) {
+                    return; // Totally okay, cancel was called
+                }
+            }
+        });
+
+        return Uni.createFrom().completionStage(jobCompletableFuture).onItem().invoke((u) -> {
+            jobMonitor.cancel(true); // Cancel the job monitor, we no longer need to update the lock
+        });
     }
 
     @Singleton

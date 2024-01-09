@@ -24,4 +24,6 @@ public interface JobStorageService {
     Uni<Void> updateJobTime(long id, LocalDateTime jobTime, boolean addIteration);
 
     Uni<Void> updateJob(IdentifiedJob job);
+
+    Uni<Void> extendJobLock(long id);
 }

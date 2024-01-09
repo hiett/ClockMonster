@@ -61,6 +61,10 @@ public class JobService {
         return jobStorageProviderService.getCurrentImplementation().updateJob(job);
     }
 
+    public Uni<Void> extendJobLock(long id) {
+        return jobStorageProviderService.getCurrentImplementation().extendJobLock(id);
+    }
+
     /**
      * Will delete a job if its a one time job, or step it to the next iteration if multi run
      * @param job job to step
