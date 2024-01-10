@@ -15,7 +15,7 @@ public interface JobStorageService {
 
     Uni<IdentifiedJobImpl> getJob(long id);
 
-    Multi<IdentifiedJobImpl> findJobs(float lookaheadPeriodSeconds);
+    Multi<IdentifiedJobImpl> findJobs(float lookaheadPeriodSeconds, int lockTimeoutSeconds, long nodeId);
 
     Uni<Void> deleteJob(long id);
 
@@ -25,5 +25,5 @@ public interface JobStorageService {
 
     Uni<Void> updateJob(IdentifiedJobImpl job);
 
-    Uni<Void> extendJobLock(long id);
+    Uni<Void> extendJobLock(long id, int lockTimeoutSeconds);
 }

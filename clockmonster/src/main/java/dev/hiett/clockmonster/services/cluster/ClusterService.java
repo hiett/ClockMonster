@@ -144,6 +144,16 @@ public class ClusterService {
         return waitTimeSeconds;
     }
 
+    public int getLockTimeoutSeconds() {
+        // We internally will refresh the lock at a faster rate if a job is taking a while, this is simply the initial
+        // and so that we have some buffer time to refresh the lock
+        return waitTimeSeconds * 2;
+    }
+
+    public long getNodeId() {
+        return nodeId;
+    }
+
     private RedisAPI getRedis() {
         return redisService.getRedis();
     }

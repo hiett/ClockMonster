@@ -24,12 +24,9 @@ import java.util.stream.StreamSupport;
 @Singleton
 public class JobRedisStorageService implements JobStorageService {
 
-    @Inject
-    JobRedisStorageKeys keys;
-
     //language=Lua
     private static final String LUA_POP_JOBS_SCRIPT = """
-            local key, now = KEYS[1], ARGV[1]
+            local key, now, nodeId, lockTimeoutSeconds = KEYS[1], ARGV[1], ARGV[2], ARGV[3]
             local jobs = redis.call("zrange", key, "-inf", now, "BYSCORE")
             
             if jobs[1] then -- if there are jobs to process
@@ -37,12 +34,12 @@ public class JobRedisStorageService implements JobStorageService {
                 -- if a lock already exists, then we skip it, and don't include it in the mget
                 -- we iterate backwards so that we can remove elements from the list without affecting the loop
                 for i = #jobs, 1, -1 do
-                    local lock = redis.call("set", jobs[i] .. ":lock", "1", "NX", "EX", 10) -- 10 seconds
+                    local lock = redis.call("set", jobs[i] .. ":lock", nodeId, "NX", "EX", lockTimeoutSeconds) -- 10 seconds
                     if not lock then -- if we can't get a lock, then remove it from the list
                         table.remove(jobs, i)
                     end
                 end
-                
+               \s
                 if jobs[1] then -- if there are any jobs after lock checking
                     return redis.call("mget", unpack(jobs))
                 else
@@ -79,6 +76,9 @@ public class JobRedisStorageService implements JobStorageService {
             "local schkey, key, payload, extime = KEYS[1], KEYS[2], ARGV[1], ARGV[2]\n" +
                     "redis.call(\"set\", key, payload)\n" +
                     "redis.call(\"zadd\", schkey, extime, key)";
+
+    @Inject
+    JobRedisStorageKeys keys;
 
     @Inject
     ObjectMapper objectMapper;
@@ -130,12 +130,12 @@ public class JobRedisStorageService implements JobStorageService {
     }
 
     @Override
-    public Multi<IdentifiedJobImpl> findJobs(float lookaheadPeriodSeconds) {
+    public Multi<IdentifiedJobImpl> findJobs(float lookaheadPeriodSeconds, int lockTimeoutSeconds, long nodeId) {
         int flooredLookaheadPeriod = (int) Math.floor(lookaheadPeriodSeconds);
         long periodLong = (System.currentTimeMillis() / 1000) + flooredLookaheadPeriod;
 
         return this.getRedis().evalsha(List.of(this.popJobsLuaSha, "1", keys.getJobZlistKey(),
-                        Long.valueOf(periodLong).toString()))
+                        Long.valueOf(periodLong).toString(), Long.valueOf(nodeId).toString(), Integer.valueOf(lockTimeoutSeconds).toString()))
                 .onItem().transformToMulti(r -> {
                     if (r.type() != ResponseType.MULTI)
                         return Multi.createFrom().empty();
@@ -205,9 +205,8 @@ public class JobRedisStorageService implements JobStorageService {
     }
 
     @Override
-    public Uni<Void> extendJobLock(long id) {
-        // 10 seconds is the lock duration
-        return this.getRedis().expire(List.of(this.createJobKey(id) + ":lock", "10"))
+    public Uni<Void> extendJobLock(long id, int lockTimeoutSeconds) {
+        return this.getRedis().expire(List.of(this.createJobKey(id) + ":lock", Integer.valueOf(lockTimeoutSeconds).toString()))
                 .onItem().transform(r -> null);
     }
 

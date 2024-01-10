@@ -41,7 +41,9 @@ public class JobService {
     }
 
     public Multi<IdentifiedJobImpl> findJobsToProcess() {
-        return jobStorageProviderService.getCurrentImplementation().findJobs(clusterService.getLookaheadPeriod());
+        return jobStorageProviderService.getCurrentImplementation().findJobs(clusterService.getLookaheadPeriod(),
+                clusterService.getLockTimeoutSeconds(),
+                clusterService.getNodeId());
     }
 
     public Uni<Void> deleteJob(long id) {
@@ -62,7 +64,7 @@ public class JobService {
     }
 
     public Uni<Void> extendJobLock(long id) {
-        return jobStorageProviderService.getCurrentImplementation().extendJobLock(id);
+        return jobStorageProviderService.getCurrentImplementation().extendJobLock(id, clusterService.getLockTimeoutSeconds());
     }
 
     /**
