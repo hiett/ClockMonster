@@ -3,7 +3,7 @@ package dev.hiett.clockmonster.executor;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.hiett.clockmonster.entities.failure.FailureConfiguration;
-import dev.hiett.clockmonster.entities.job.IdentifiedJob;
+import dev.hiett.clockmonster.entities.job.IdentifiedJobImpl;
 import dev.hiett.clockmonster.entities.job.TemporaryFailureJob;
 import dev.hiett.clockmonster.events.ClockMonsterEvent;
 import dev.hiett.clockmonster.events.ClockMonsterEventDispatcherService;
@@ -11,7 +11,6 @@ import dev.hiett.clockmonster.services.cluster.ClusterService;
 import dev.hiett.clockmonster.services.dispatcher.DispatcherService;
 import dev.hiett.clockmonster.services.job.JobService;
 import io.quarkus.scheduler.Scheduled;
-import io.quarkus.scheduler.ScheduledExecution;
 import io.smallrye.common.annotation.RunOnVirtualThread;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
@@ -27,7 +26,6 @@ import java.util.stream.Collectors;
 @Singleton
 public class JobExecutor {
 
-    private static final String SCHEDULER_IDENTITY = "clockmonster-job-executor";
     private static final ExecutorService EXECUTOR_SERVICE = Executors.newVirtualThreadPerTaskExecutor(); // TODO: error handling
 
     @Inject
@@ -47,8 +45,6 @@ public class JobExecutor {
 
     @Inject
     ObjectMapper objectMapper;
-
-    private boolean processing = false;
 
     private float lastOffset = -1;
 
@@ -114,10 +110,8 @@ public class JobExecutor {
 
         log.info("Preparing execution of jobs at " + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(System.currentTimeMillis()));
 
-        processing = true;
-
         long jobExecutionStartTime = System.currentTimeMillis();
-        Uni<List<IdentifiedJob>> jobList = jobService.findJobsToProcess().collect().asList();
+        Uni<List<IdentifiedJobImpl>> jobList = jobService.findJobsToProcess().collect().asList();
 
         jobList.onItem().transform(arr -> arr.stream().map(this::handleJob).collect(Collectors.toList()))
                 .onItem().transform(r -> r.isEmpty() ? null : r)
@@ -128,12 +122,10 @@ public class JobExecutor {
                 .subscribe().with(res -> {
                     long jobExecutionElapsedTime = System.currentTimeMillis() - jobExecutionStartTime;
                     log.info("Job execution took " + jobExecutionElapsedTime + "ms.");
-
-                    processing = false;
                 });
     }
 
-    private Uni<Void> handleJob(IdentifiedJob job) {
+    private Uni<Void> handleJob(IdentifiedJobImpl job) {
         try {
             String jsonOfJob = objectMapper.writeValueAsString(job);
             System.out.println(jsonOfJob);
@@ -149,7 +141,11 @@ public class JobExecutor {
             // The job is in the past, process it right now
             log.info("Job " + job.getId() + " is in the past, processing. It was " + secondsDiff + " seconds late.");
 
-            return this.processJob(job, 0);
+            EXECUTOR_SERVICE.submit(() -> {
+                this.processJob(job, 0).subscribe().with((res) -> {});
+            });
+
+            return Uni.createFrom().voidItem();
         }
 
         // We want to schedule it at the start of the second, so we need to deal in milliseconds here
@@ -190,11 +186,7 @@ public class JobExecutor {
         return false;
     }
 
-    public boolean isProcessing() {
-        return processing;
-    }
-
-    private Uni<Void> processJob(IdentifiedJob job, long estTimeSinceLockCreationMs) {
+    private Uni<Void> processJob(IdentifiedJobImpl job, long estTimeSinceLockCreationMs) {
         log.info("Executing job " + job.getId() + ", type=" + job.getTime().getType() + ", method="
                 + job.getAction().getType());
 
@@ -217,7 +209,9 @@ public class JobExecutor {
                                    .chain(v -> {
                                        // Delete the job
                                        if (failure.getDeadLetter() != null) {
-                                           TemporaryFailureJob failureJob = new TemporaryFailureJob(job.getPayload(), job.getFailure().getDeadLetter());
+                                           // We create a new job that converts the dead letter -> the action, then fire that
+                                           // we carry over the ID so the header is persistent for recipients to use
+                                           TemporaryFailureJob failureJob = new TemporaryFailureJob(job.getId(), job.getPayload(), job.getFailure().getDeadLetter());
                                            return dispatcherService.dispatchJob(failureJob).onItem().transform(r -> null); // Don't care if this fails
                                        }
 
@@ -264,17 +258,5 @@ public class JobExecutor {
         return Uni.createFrom().completionStage(jobCompletableFuture).onItem().invoke((u) -> {
             jobMonitor.cancel(true); // Cancel the job monitor, we no longer need to update the lock
         });
-    }
-
-    @Singleton
-    public static class SkipPredicate implements Scheduled.SkipPredicate {
-
-        @Inject
-        JobExecutor jobExecutor;
-
-        @Override
-        public boolean test(ScheduledExecution execution) {
-            return jobExecutor.isProcessing();
-        }
     }
 }

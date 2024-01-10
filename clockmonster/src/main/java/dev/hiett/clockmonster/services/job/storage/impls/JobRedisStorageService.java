@@ -2,7 +2,7 @@ package dev.hiett.clockmonster.services.job.storage.impls;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import dev.hiett.clockmonster.entities.job.IdentifiedJob;
+import dev.hiett.clockmonster.entities.job.IdentifiedJobImpl;
 import dev.hiett.clockmonster.entities.job.UnidentifiedJob;
 import dev.hiett.clockmonster.services.job.storage.JobStorageService;
 import dev.hiett.clockmonster.services.redis.RedisService;
@@ -35,13 +35,14 @@ public class JobRedisStorageService implements JobStorageService {
             if jobs[1] then -- if there are jobs to process
                 -- iterate over each job and try to apply a lock
                 -- if a lock already exists, then we skip it, and don't include it in the mget
-                for i, job in ipairs(jobs) do
-                    local lock = redis.call("set", job .. ":lock", "1", "NX", "EX", 10) -- 10 seconds
+                -- we iterate backwards so that we can remove elements from the list without affecting the loop
+                for i = #jobs, 1, -1 do
+                    local lock = redis.call("set", jobs[i] .. ":lock", "1", "NX", "EX", 10) -- 10 seconds
                     if not lock then -- if we can't get a lock, then remove it from the list
                         table.remove(jobs, i)
                     end
                 end
-            
+                
                 if jobs[1] then -- if there are any jobs after lock checking
                     return redis.call("mget", unpack(jobs))
                 else
@@ -105,10 +106,10 @@ public class JobRedisStorageService implements JobStorageService {
     }
 
     @Override
-    public Uni<IdentifiedJob> createJob(UnidentifiedJob unidentifiedJob) {
+    public Uni<IdentifiedJobImpl> createJob(UnidentifiedJob unidentifiedJob) {
         return this.createJobId()
                 .chain(jobId -> {
-                    IdentifiedJob identifiedJob = new IdentifiedJob(jobId, unidentifiedJob.getPayload(),
+                    IdentifiedJobImpl identifiedJob = new IdentifiedJobImpl(jobId, unidentifiedJob.getPayload(),
                             unidentifiedJob.getTime(), unidentifiedJob.getAction(), unidentifiedJob.getFailure());
 
                     // Stringify this
@@ -123,13 +124,13 @@ public class JobRedisStorageService implements JobStorageService {
     }
 
     @Override
-    public Uni<IdentifiedJob> getJob(long id) {
+    public Uni<IdentifiedJobImpl> getJob(long id) {
         return this.getRedis().get(this.createJobKey(id)).onItem().ifNotNull()
                 .transform(r -> this.fromJson(r.toString()));
     }
 
     @Override
-    public Multi<IdentifiedJob> findJobs(float lookaheadPeriodSeconds) {
+    public Multi<IdentifiedJobImpl> findJobs(float lookaheadPeriodSeconds) {
         int flooredLookaheadPeriod = (int) Math.floor(lookaheadPeriodSeconds);
         long periodLong = (System.currentTimeMillis() / 1000) + flooredLookaheadPeriod;
 
@@ -191,7 +192,7 @@ public class JobRedisStorageService implements JobStorageService {
     }
 
     @Override
-    public Uni<Void> updateJob(IdentifiedJob job) {
+    public Uni<Void> updateJob(IdentifiedJobImpl job) {
         // Encode the job into json
         String jobJson = this.jsonifyJob(job);
         if (jobJson == null)
@@ -211,6 +212,13 @@ public class JobRedisStorageService implements JobStorageService {
     }
 
     private String loadScript(String script) {
+        // Preprocess the script: remove all lines that are just comments
+        // we need to ignore any indentation when doing so (trim)
+        script = Arrays.stream(script.split("\n"))
+                .filter(s -> !s.trim().startsWith("--"))
+                .reduce((s1, s2) -> s1 + "\n" + s2)
+                .orElseThrow(); // This should never happen
+
         return this.getRedis().scriptAndAwait(List.of("LOAD", script)).toString();
     }
 
@@ -226,7 +234,7 @@ public class JobRedisStorageService implements JobStorageService {
         return keys.getJobKeyPrefix() + id;
     }
 
-    private String jsonifyJob(IdentifiedJob identifiedJob) {
+    private String jsonifyJob(IdentifiedJobImpl identifiedJob) {
         try {
             return objectMapper.writeValueAsString(identifiedJob);
         } catch (JsonProcessingException e) {
@@ -239,9 +247,9 @@ public class JobRedisStorageService implements JobStorageService {
         return this.redisService.getRedis();
     }
 
-    public IdentifiedJob fromJson(String jobJson) {
+    public IdentifiedJobImpl fromJson(String jobJson) {
         try {
-            return objectMapper.readValue(jobJson, IdentifiedJob.class);
+            return objectMapper.readValue(jobJson, IdentifiedJobImpl.class);
         } catch (JsonProcessingException e) {
             e.printStackTrace();
             return null;

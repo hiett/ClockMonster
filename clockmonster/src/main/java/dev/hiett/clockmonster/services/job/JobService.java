@@ -1,6 +1,6 @@
 package dev.hiett.clockmonster.services.job;
 
-import dev.hiett.clockmonster.entities.job.IdentifiedJob;
+import dev.hiett.clockmonster.entities.job.IdentifiedJobImpl;
 import dev.hiett.clockmonster.entities.job.UnidentifiedJob;
 import dev.hiett.clockmonster.events.ClockMonsterEvent;
 import dev.hiett.clockmonster.events.ClockMonsterEventDispatcherService;
@@ -30,17 +30,17 @@ public class JobService {
         return jobStorageProviderService.isReady();
     }
 
-    public Uni<IdentifiedJob> createJob(UnidentifiedJob job) {
+    public Uni<IdentifiedJobImpl> createJob(UnidentifiedJob job) {
         return jobStorageProviderService.getCurrentImplementation().createJob(job)
                 .invoke(identifiedJob ->
                         eventDispatcherService.dispatch(ClockMonsterEvent.JOB_CREATE.build(identifiedJob.getId())));
     }
 
-    public Uni<IdentifiedJob> getJob(long id) {
+    public Uni<IdentifiedJobImpl> getJob(long id) {
         return jobStorageProviderService.getCurrentImplementation().getJob(id);
     }
 
-    public Multi<IdentifiedJob> findJobsToProcess() {
+    public Multi<IdentifiedJobImpl> findJobsToProcess() {
         return jobStorageProviderService.getCurrentImplementation().findJobs(clusterService.getLookaheadPeriod());
     }
 
@@ -57,7 +57,7 @@ public class JobService {
                 });
     }
 
-    public Uni<Void> updateJob(IdentifiedJob job) {
+    public Uni<Void> updateJob(IdentifiedJobImpl job) {
         return jobStorageProviderService.getCurrentImplementation().updateJob(job);
     }
 
@@ -70,7 +70,7 @@ public class JobService {
      * @param job job to step
      * @return void
      */
-    public Uni<Void> stepJob(IdentifiedJob job) {
+    public Uni<Void> stepJob(IdentifiedJobImpl job) {
         switch (job.getTime().getType()) {
             case ONCE -> {
                 return this.deleteJob(job.getId());

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.hiett.clockmonster.entities.action.ActionType;
 import dev.hiett.clockmonster.entities.action.impls.SqsActionPayload;
+import dev.hiett.clockmonster.entities.job.IdentifiedJob;
 import dev.hiett.clockmonster.services.dispatcher.Dispatcher;
 import io.smallrye.mutiny.Uni;
 import software.amazon.awssdk.auth.credentials.AwsCredentials;
@@ -17,7 +18,7 @@ public class SqsDispatcher implements Dispatcher<SqsActionPayload> {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
-    public Uni<Boolean> dispatchJob(SqsActionPayload actionPayload, Object payload) {
+    public Uni<Boolean> dispatchJob(IdentifiedJob job, SqsActionPayload actionPayload, Object payload) {
         SqsAsyncClient asyncClient = SqsAsyncClient.builder()
                 .credentialsProvider(StaticCredentialsProvider.create(new AwsCredentials() {
                     @Override
@@ -32,6 +33,11 @@ public class SqsDispatcher implements Dispatcher<SqsActionPayload> {
                 }))
                 .region(Region.of(actionPayload.getRegion()))
                 .build();
+
+        if (actionPayload.isWrapPayload()) {
+            // Include the metadata in a wrapper
+            // TODO;
+        }
 
         // Encode the payload to JSON
         String jsonPayload;

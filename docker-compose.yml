@@ -4,6 +4,7 @@ services:
   clockmonster1:
     image: quarkus/clockmonster-gradle-jvm
     depends_on: ['redis']
+    ports: ['8080:8080'] # Use as the API node
     environment:
       JOB_STORAGE_METHOD: REDIS
       REDIS_CONN_URL: 'redis://redis:6379'

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.hiett.clockmonster.entities.action.ActionType;
 import dev.hiett.clockmonster.entities.action.impls.HttpActionPayload;
+import dev.hiett.clockmonster.entities.job.IdentifiedJob;
 import dev.hiett.clockmonster.services.dispatcher.Dispatcher;
 import io.smallrye.mutiny.Uni;
 import jakarta.ws.rs.client.Client;
@@ -26,7 +27,7 @@ public class HttpDispatcher implements Dispatcher<HttpActionPayload> {
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
-    public Uni<Boolean> dispatchJob(HttpActionPayload httpActionPayload, Object payload) {
+    public Uni<Boolean> dispatchJob(IdentifiedJob job, HttpActionPayload httpActionPayload, Object payload) {
         Client client = ClientBuilder.newClient();
 
         // Encode the payload to JSON
@@ -43,9 +44,11 @@ public class HttpDispatcher implements Dispatcher<HttpActionPayload> {
 
         // Add all the additional headers that might be defined
         for (Map.Entry<String, String> headerEntry : httpActionPayload.getAdditionalHeaders().entrySet())
-            builder = builder.header(headerEntry.getKey(), headerEntry.getValue());
+            builder.header(headerEntry.getKey(), headerEntry.getValue());
 
-        builder = builder.header("x-dispatched-from", "ClockMonster");
+        builder.header("x-dispatched-from", "ClockMonster");
+        builder.header("x-clockmonster-job-id", job.getId() + "");
+        builder.header("x-clockmonster-job-target-unix", job.getTime().getNextRunUnix() + "");
 
         if(httpActionPayload.signingEnabled()) {
             // Signing is enabled, create a signature for x-webhook-signate
@@ -54,7 +57,7 @@ public class HttpDispatcher implements Dispatcher<HttpActionPayload> {
                 String hmac = calculateHmac(httpActionPayload.getSigningSecret(), jsonPayload + timestamp);
                 String webhookSignature = "v=" + timestamp + ",d=" + hmac;
 
-                builder = builder.header("x-webhook-signature", webhookSignature);
+                builder.header("x-webhook-signature", webhookSignature);
             } catch (NoSuchAlgorithmException | InvalidKeyException e) {
                 e.printStackTrace();
                 return Uni.createFrom().item(false);

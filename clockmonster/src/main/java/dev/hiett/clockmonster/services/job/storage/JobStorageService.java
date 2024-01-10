@@ -1,6 +1,6 @@
 package dev.hiett.clockmonster.services.job.storage;
 
-import dev.hiett.clockmonster.entities.job.IdentifiedJob;
+import dev.hiett.clockmonster.entities.job.IdentifiedJobImpl;
 import dev.hiett.clockmonster.entities.job.UnidentifiedJob;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
@@ -11,11 +11,11 @@ public interface JobStorageService {
 
     default void createConnection() {}
 
-    Uni<IdentifiedJob> createJob(UnidentifiedJob unidentifiedJob);
+    Uni<IdentifiedJobImpl> createJob(UnidentifiedJob unidentifiedJob);
 
-    Uni<IdentifiedJob> getJob(long id);
+    Uni<IdentifiedJobImpl> getJob(long id);
 
-    Multi<IdentifiedJob> findJobs(float lookaheadPeriodSeconds);
+    Multi<IdentifiedJobImpl> findJobs(float lookaheadPeriodSeconds);
 
     Uni<Void> deleteJob(long id);
 
@@ -23,7 +23,7 @@ public interface JobStorageService {
 
     Uni<Void> updateJobTime(long id, LocalDateTime jobTime, boolean addIteration);
 
-    Uni<Void> updateJob(IdentifiedJob job);
+    Uni<Void> updateJob(IdentifiedJobImpl job);
 
     Uni<Void> extendJobLock(long id);
 }

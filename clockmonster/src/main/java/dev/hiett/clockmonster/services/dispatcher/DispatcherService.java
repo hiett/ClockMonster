@@ -1,6 +1,7 @@
 package dev.hiett.clockmonster.services.dispatcher;
 
 import dev.hiett.clockmonster.entities.action.ActionType;
+import dev.hiett.clockmonster.entities.job.IdentifiedJob;
 import dev.hiett.clockmonster.entities.job.Job;
 import dev.hiett.clockmonster.services.dispatcher.impls.HttpDispatcher;
 import dev.hiett.clockmonster.services.dispatcher.impls.SqsDispatcher;
@@ -18,7 +19,7 @@ public class DispatcherService {
             new SqsDispatcher()
     );
 
-    public Uni<Boolean> dispatchJob(Job job) {
+    public Uni<Boolean> dispatchJob(IdentifiedJob job) {
         // Find the dispatcher required
         Dispatcher dispatcher = this.findDispatcher(job.getAction().getType());
         if(dispatcher == null)
@@ -26,7 +27,7 @@ public class DispatcherService {
 
         try {
             //noinspection unchecked
-            return dispatcher.dispatchJob(job.getAction().getPayload(), job.getPayload());
+            return dispatcher.dispatchJob(job, job.getAction().getPayload(), job.getPayload());
         } catch (Exception e) {
             return Uni.createFrom().item(false);
         }

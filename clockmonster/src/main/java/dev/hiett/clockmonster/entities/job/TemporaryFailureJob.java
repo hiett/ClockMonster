@@ -4,14 +4,21 @@ import dev.hiett.clockmonster.entities.action.ActionConfiguration;
 import dev.hiett.clockmonster.entities.failure.FailureConfiguration;
 import dev.hiett.clockmonster.entities.time.TimeConfiguration;
 
-public class TemporaryFailureJob implements Job {
+public class TemporaryFailureJob implements IdentifiedJob {
 
+    private final long id;
     private final Object payload;
     private final ActionConfiguration actionConfiguration;
 
-    public TemporaryFailureJob(Object payload, ActionConfiguration actionConfiguration) {
+    public TemporaryFailureJob(long id, Object payload, ActionConfiguration actionConfiguration) {
+        this.id = id;
         this.payload = payload;
         this.actionConfiguration = actionConfiguration;
+    }
+
+    @Override
+    public long getId() {
+        return id;
     }
 
     @Override
