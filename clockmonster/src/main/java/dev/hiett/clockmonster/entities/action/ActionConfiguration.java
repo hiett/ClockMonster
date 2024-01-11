@@ -1,12 +1,10 @@
 package dev.hiett.clockmonster.entities.action;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.hiett.clockmonster.entities.action.impls.HttpActionPayload;
 import dev.hiett.clockmonster.entities.action.impls.SqsActionPayload;
 import io.quarkus.runtime.annotations.RegisterForReflection;
-import io.vertx.mutiny.sqlclient.Row;
 import jakarta.validation.*;
 
 import java.beans.ConstructorProperties;
@@ -87,23 +85,5 @@ public class ActionConfiguration {
 
     public void setSqs(SqsActionPayload sqs) {
         this.sqs = sqs;
-    }
-
-    // Static //
-    public static ActionConfiguration fromRow(Row row) {
-        return fromRow(row, "action");
-    }
-
-    public static ActionConfiguration fromRow(Row row, String column) {
-        String actionString = row.getString(column);
-        if(actionString != null) {
-            try {
-                return objectMapper.readValue(actionString, ActionConfiguration.class);
-            } catch (JsonProcessingException e) {
-                e.printStackTrace();
-            }
-        }
-
-        return null;
     }
 }

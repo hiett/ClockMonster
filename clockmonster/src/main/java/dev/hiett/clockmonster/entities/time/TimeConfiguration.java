@@ -1,11 +1,8 @@
 package dev.hiett.clockmonster.entities.time;
 
 import io.quarkus.runtime.annotations.RegisterForReflection;
-import io.vertx.mutiny.sqlclient.Row;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
-
-import java.time.ZoneId;
 
 @RegisterForReflection
 public class TimeConfiguration {
@@ -71,16 +68,5 @@ public class TimeConfiguration {
 
     public void setIterations(int iterations) {
         this.iterations = iterations;
-    }
-
-    // Static //
-    public static TimeConfiguration fromRow(Row row) {
-        return new TimeConfiguration(
-                TimeType.valueOf(row.getString("time_type")),
-                row.getLocalDateTime("time_next_run").atZone(ZoneId.of("UTC")).toEpochSecond(),
-                row.getInteger("time_repeating_iterations"),
-                row.getLong("time_repeating_interval"),
-                row.getInteger("time_repeating_iterations_count")
-        );
     }
 }
