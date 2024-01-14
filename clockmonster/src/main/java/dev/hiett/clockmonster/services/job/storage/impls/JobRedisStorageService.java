@@ -16,8 +16,6 @@ import jakarta.inject.Singleton;
 import org.jboss.logging.Logger;
 
 import java.io.IOException;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.StreamSupport;
 
@@ -157,7 +155,7 @@ public class JobRedisStorageService implements JobStorageService {
         return this.batchDeleteJobs(id);
     }
 
-    @Override
+    // TODO: remove, only here for legacy reasons
     public Uni<Void> batchDeleteJobs(Long... ids) {
         List<String> idList = Arrays.stream(ids).map(this::createJobKey).toList();
 
@@ -172,23 +170,6 @@ public class JobRedisStorageService implements JobStorageService {
         args.add(keys.getJobZlistKey());
 
         return this.getRedis().evalsha(args).onItem().transform(r -> null);
-    }
-
-    @Override
-    public Uni<Void> updateJobTime(long id, LocalDateTime jobTime, boolean addIteration) {
-        // There is some JSON parsing that has to go on here
-        // TODO: Check for an existing lock, this job may not be directly mutable in this context
-        return this.getJob(id)
-                .onItem().ifNull().fail()
-                .onItem().transform(res -> {
-                    res.getTime().setNextRunUnix(jobTime.atZone(ZoneId.of("UTC")).toEpochSecond());
-                    if(addIteration)
-                        res.getTime().setIterationsCount(res.getTime().getIterationsCount() + 1);
-                    return res;
-                })
-                .onItem().ifNull().fail() // Update the sorted set & entry
-                .chain(this::updateJob)
-                .onFailure().recoverWithNull().replaceWithVoid();
     }
 
     @Override
@@ -207,6 +188,18 @@ public class JobRedisStorageService implements JobStorageService {
     @Override
     public Uni<Void> extendJobLock(long id, int lockTimeoutSeconds) {
         return this.getRedis().expire(List.of(this.createJobKey(id) + ":lock", Integer.valueOf(lockTimeoutSeconds).toString()))
+                .onItem().transform(r -> null);
+    }
+
+    @Override
+    public Uni<Long> queryJobLock(long id) {
+        return this.getRedis().get(this.createJobKey(id) + ":lock")
+                .onItem().ifNotNull().transform(Response::toLong);
+    }
+
+    @Override
+    public Uni<Void> deleteJobLock(long id) {
+        return this.getRedis().del(List.of(this.createJobKey(id) + ":lock"))
                 .onItem().transform(r -> null);
     }
 

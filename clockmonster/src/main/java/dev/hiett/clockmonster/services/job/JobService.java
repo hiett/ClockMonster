@@ -4,15 +4,14 @@ import dev.hiett.clockmonster.entities.job.IdentifiedJobImpl;
 import dev.hiett.clockmonster.entities.job.UnidentifiedJob;
 import dev.hiett.clockmonster.events.ClockMonsterEvent;
 import dev.hiett.clockmonster.events.ClockMonsterEventDispatcherService;
+import dev.hiett.clockmonster.services.cluster.ClusterCommunicationService;
 import dev.hiett.clockmonster.services.cluster.ClusterService;
+import dev.hiett.clockmonster.services.cluster.NodeIdService;
 import dev.hiett.clockmonster.services.job.storage.JobStorageProviderService;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 
 @ApplicationScoped
 public class JobService {
@@ -25,6 +24,12 @@ public class JobService {
 
     @Inject
     ClusterService clusterService;
+
+    @Inject
+    ClusterCommunicationService clusterCommunicationService;
+
+    @Inject
+    NodeIdService nodeIdService;
 
     public boolean isReady() {
         return jobStorageProviderService.isReady();
@@ -43,19 +48,29 @@ public class JobService {
     public Multi<IdentifiedJobImpl> findJobsToProcess() {
         return jobStorageProviderService.getCurrentImplementation().findJobs(clusterService.getLookaheadPeriod(),
                 clusterService.getLockTimeoutSeconds(),
-                clusterService.getNodeId());
+                nodeIdService.getNodeId());
     }
 
-    public Uni<Void> deleteJob(long id) {
+    public Uni<Void> forceDeleteJob(long id) {
         return jobStorageProviderService.getCurrentImplementation().deleteJob(id)
                 .invoke(r -> eventDispatcherService.dispatch(ClockMonsterEvent.JOB_REMOVE.build(id)));
     }
 
-    public Uni<Void> batchDeleteJobs(Long... ids) {
-        return jobStorageProviderService.getCurrentImplementation().batchDeleteJobs(ids)
-                .invoke(r -> {
-                    for(long id : ids)
-                        eventDispatcherService.dispatch(ClockMonsterEvent.JOB_REMOVE.build(id));
+    public Uni<Void> safeDeleteJob(long id) {
+        // We have to be careful here:
+        // - The job may be queued for execution on this node
+        // - The job may be queued for execution on *another* node!!
+        // - the job may just be in the future
+        // The fastest way to tell this state is by checking if a lock exists on the job
+        // the value of this lock is the nodeID that has the job queued
+
+        // Check if the job is locked
+        return jobStorageProviderService.getCurrentImplementation().queryJobLock(id)
+                .chain(nodeId -> {
+                    if (nodeId == null)
+                        return forceDeleteJob(id); // Safe to delete, not locked
+
+                    return clusterCommunicationService.emitLiveJobDelete(nodeId, id);
                 });
     }
 
@@ -75,20 +90,22 @@ public class JobService {
     public Uni<Void> stepJob(IdentifiedJobImpl job) {
         switch (job.getTime().getType()) {
             case ONCE -> {
-                return this.deleteJob(job.getId());
+                return this.forceDeleteJob(job.getId());
             }
             case REPEATING -> {
                 // Check if the number of iterations has passed. Add one to remember that we haven't yet incremented this iteration
                 if (job.getTime().getIterations() != -1 && job.getTime().getIterationsCount() + 1 >= job.getTime().getIterations()) {
                     // Delete the job
-                    return this.deleteJob(job.getId());
+                    return this.forceDeleteJob(job.getId());
                 }
 
                 long newUnixTime = (System.currentTimeMillis() / 1000) + job.getTime().getInterval();
-                LocalDateTime localDateTime = LocalDateTime.ofEpochSecond(newUnixTime, 0, ZoneOffset.UTC);
 
-                // Update the job time and number of iterations
-                return jobStorageProviderService.getCurrentImplementation().updateJobTime(job.getId(), localDateTime, true);
+                job.getTime().setNextRunUnix(newUnixTime);
+                job.getTime().incrementIterationsCount();
+
+                return jobStorageProviderService.getCurrentImplementation()
+                        .updateJob(job);
             }
             default -> {
                 return Uni.createFrom().voidItem();

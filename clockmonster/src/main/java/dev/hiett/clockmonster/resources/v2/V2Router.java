@@ -18,7 +18,7 @@ public class V2Router {
     ResourceContext resourceContext;
 
     @Path("/job")
-    public JobResource jobResource() {
-        return resourceContext.getResource(JobResource.class);
+    public V2JobResource jobResource() {
+        return resourceContext.getResource(V2JobResource.class);
     }
 }

@@ -36,16 +36,17 @@ public class ClusterService {
     @Inject
     ClusterRedisKeys clusterRedisKeys;
 
+    @Inject
+    NodeIdService nodeIdService;
+
     @ConfigProperty(name = "clockmonster.executor.wait-seconds", defaultValue = "5")
     int waitTimeSeconds;
 
-    private long nodeId;
     private float offset;
     private float lookaheadPeriod;
 
     void onStart(@Observes StartupEvent event) {
-        nodeId = getRedis().incrAndAwait(clusterRedisKeys.getNodeIdGenKey()).toLong();
-        log.info("ClusterService started with nodeId=" + nodeId);
+        log.info("ClusterService started with nodeId=" + nodeIdService.getNodeId());
 
         updateNodeHash();
         checkForDeadNodes();
@@ -55,7 +56,7 @@ public class ClusterService {
     void onStop(@Observes ShutdownEvent event) {
         // We remove ourselves from the cluster hash table, the other nodes will automatically reschedule themselves
         // the next time they check for dead nodes
-        getRedis().hdelAndAwait(List.of(clusterRedisKeys.getClusterHashKey(), String.valueOf(nodeId)));
+        getRedis().hdelAndAwait(List.of(clusterRedisKeys.getClusterHashKey(), String.valueOf(nodeIdService.getNodeId())));
     }
 
     @Scheduled(
@@ -72,7 +73,7 @@ public class ClusterService {
 
     private void updateNodeHash() {
         // Every 10 seconds, update the cluster hash table with this node's timestamp
-        getRedis().hsetAndAwait(List.of(clusterRedisKeys.getClusterHashKey(), String.valueOf(nodeId), String.valueOf(System.currentTimeMillis())));
+        getRedis().hsetAndAwait(List.of(clusterRedisKeys.getClusterHashKey(), String.valueOf(nodeIdService.getNodeId()), String.valueOf(System.currentTimeMillis())));
     }
 
     private void checkForDeadNodes() {
@@ -126,7 +127,7 @@ public class ClusterService {
             return; // Not a valid cluster state
 
         this.lookaheadPeriod = this.waitTimeSeconds / (float) ids.size();
-        int index = ids.indexOf(nodeId);
+        int index = ids.indexOf(nodeIdService.getNodeId());
         this.offset = index * this.lookaheadPeriod;
 
         log.info("Wait period: " + this.waitTimeSeconds + ", lookahead period: " + this.lookaheadPeriod + ", index: " + index + ", offset: " + this.offset);
@@ -148,10 +149,6 @@ public class ClusterService {
         // We internally will refresh the lock at a faster rate if a job is taking a while, this is simply the initial
         // and so that we have some buffer time to refresh the lock
         return waitTimeSeconds * 2;
-    }
-
-    public long getNodeId() {
-        return nodeId;
     }
 
     private RedisAPI getRedis() {

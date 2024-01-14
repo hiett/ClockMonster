@@ -39,7 +39,7 @@ public class ClockMonsterEventConsumer {
         log.info("Attempting to create announcement dispatcher. Enabled? " + announceEventsEnabled);
 
         AnnounceEventMethodDispatcher dispatcher = this.getDispatcher();
-        if(dispatcher == null)
+        if (dispatcher == null)
             return;
 
         dispatcher.onCreate();
@@ -48,7 +48,7 @@ public class ClockMonsterEventConsumer {
     @ConsumeEvent(WrappedClockMonsterEvent.CHANNEL_NAME)
     public Uni<Void> onEvent(WrappedClockMonsterEvent event) {
         AnnounceEventMethodDispatcher dispatcher = this.getDispatcher();
-        if(dispatcher == null)
+        if (dispatcher == null)
             return Uni.createFrom().voidItem();
 
         // Publish this announce event via the specified method
@@ -67,16 +67,12 @@ public class ClockMonsterEventConsumer {
     }
 
     private AnnounceEventMethodDispatcher getDispatcher() {
-        if(!announceEventsEnabled)
+        if (!announceEventsEnabled)
             return null;
 
-        switch(announceEventsMethod) {
-            case REDIS:
-                return redisAnnounceEventMethod;
-            case SQS:
-                return sqsAnnounceEventMethod;
-            default:
-                return null;
-        }
+        return switch (announceEventsMethod) {
+            case REDIS -> redisAnnounceEventMethod;
+            case SQS -> sqsAnnounceEventMethod;
+        };
     }
 }

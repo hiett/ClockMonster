@@ -5,6 +5,7 @@ import dev.hiett.clockmonster.entities.GenericErrorResponse;
 import dev.hiett.clockmonster.entities.job.UnidentifiedJob;
 import dev.hiett.clockmonster.services.job.JobService;
 import io.quarkus.arc.Unremovable;
+import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.inject.Inject;
@@ -18,7 +19,7 @@ import java.util.stream.Collectors;
 
 @RequestScoped
 @Unremovable
-public class JobResource {
+public class V2JobResource {
 
     @Inject
     JobService jobService;
@@ -31,9 +32,8 @@ public class JobResource {
                 .chain(p -> jobService.createJob(p))
                 .onItem().transform(identifiedJob -> Response.ok(identifiedJob).build())
                 .onFailure().recoverWithItem(e -> {
-                    if(e instanceof GenericErrorException) {
+                    if(e instanceof GenericErrorException)
                         return ((GenericErrorException) e).getResponse().toResponse();
-                    }
 
                     return new GenericErrorResponse(e.getMessage(), 500).toResponse();
                 });
@@ -52,18 +52,22 @@ public class JobResource {
 
     @DELETE
     public Uni<Response> deleteJob(@QueryParam("id") long id) {
-        return jobService.deleteJob(id).onItem().transform(res -> Response.ok().build());
+        return jobService.safeDeleteJob(id).onItem().transform(res -> Response.ok().build());
     }
 
     @DELETE
     @Path("/batch")
-    public Uni<Response> batchDeleteJob(@QueryParam("ids") String ids) {
+    public Uni<Response> batchDeleteJobs(@QueryParam("ids") String ids) {
         // Split the ids into strings
         List<Long> parsedIds = Arrays.stream(ids.split(","))
                 .map(Long::parseLong)
-                .collect(Collectors.toList());
+                .toList();
 
-        return jobService.batchDeleteJobs(parsedIds.toArray(new Long[]{}))
-                .onItem().transform(res -> Response.ok().build());
+        return Multi.createFrom().items(parsedIds.stream())
+                .call(jobId -> jobService.safeDeleteJob(jobId))
+                .collect()
+                .asList()
+                .onItem()
+                .transform(res -> Response.ok().build());
     }
 }

@@ -7,12 +7,15 @@ import dev.hiett.clockmonster.entities.job.IdentifiedJobImpl;
 import dev.hiett.clockmonster.entities.job.TemporaryFailureJob;
 import dev.hiett.clockmonster.events.ClockMonsterEvent;
 import dev.hiett.clockmonster.events.ClockMonsterEventDispatcherService;
+import dev.hiett.clockmonster.services.cluster.ClusterCommunicationService;
 import dev.hiett.clockmonster.services.cluster.ClusterService;
 import dev.hiett.clockmonster.services.dispatcher.DispatcherService;
 import dev.hiett.clockmonster.services.job.JobService;
 import io.quarkus.scheduler.Scheduled;
+import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.common.annotation.RunOnVirtualThread;
 import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import org.jboss.logging.Logger;
@@ -171,6 +174,12 @@ public class JobExecutor {
         return Uni.createFrom().voidItem();
     }
 
+    @ConsumeEvent(ClusterCommunicationService.DELETE_JOB_EVENT_BUS_EVENT)
+    public Uni<Boolean> onLiveJobCancel(long jobId) {
+        return Uni.createFrom().item(cancelFutureJob(jobId))
+                .emitOn(Infrastructure.getDefaultWorkerPool());
+    }
+
     /**
      * Cancels a job that has been locked and internally queued on this node
      * @param jobId job id to cancel
@@ -179,6 +188,7 @@ public class JobExecutor {
     public boolean cancelFutureJob(long jobId) {
         Future<?> future = futureJobMap.remove(jobId);
         if (future != null) {
+            log.info("Cancelled live-scheduled job future for " + jobId + "!");
             future.cancel(true);
             return true;
         }
@@ -218,7 +228,7 @@ public class JobExecutor {
                                        return Uni.createFrom().voidItem();
                                    }).chain(v -> {
                                        log.warn("Deleting job " + job.getId() + " because it failed max times.");
-                                       return jobService.deleteJob(job.getId());
+                                       return jobService.forceDeleteJob(job.getId());
                                    });
                        } else {
                            // Update the job state based on the backoff time period

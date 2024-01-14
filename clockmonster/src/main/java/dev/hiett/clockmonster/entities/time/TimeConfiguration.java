@@ -46,6 +46,10 @@ public class TimeConfiguration {
         this.iterationsCount = iterationsCount;
     }
 
+    public void incrementIterationsCount() {
+        this.iterationsCount++;
+    }
+
     public long getNextRunUnix() {
         return nextRunUnix;
     }
